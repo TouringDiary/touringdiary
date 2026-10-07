@@ -1,7 +1,8 @@
-import { isPublicUsableImageAssetStatus, parseImageAssetStatusDb } from '@/constants/governance';
+import { isPubliclyVisibleAssignmentStatus, parseImageAssetStatusDb } from '@/constants/governance';
+import { isAssetEligibleForPublicUse } from '@/domain/media/imagePublicationPolicy';
+import { entityImageAssignmentsQuery } from '@/services/media/entityImageAssignmentsQuery';
 import { resolvePatronPrimaryImagePublicUrl } from '@/services/media/entityPrimaryImageReadService';
 import { fetchMediaAssetsByIds } from '@/services/media/mediaAssetService';
-import { entityImageAssignmentsQuery } from '@/services/media/entityImageAssignmentsQuery';
 
 type PatronGalleryAssignmentVisibilityRow = {
   id: string;
@@ -23,13 +24,25 @@ function isPatronGalleryAssignmentVisibilityRow(
 
 function isGalleryAssignmentPubliclyVisible(
   row: PatronGalleryAssignmentVisibilityRow,
-  assetStatus: string | null | undefined,
+  asset:
+    | {
+        asset_status: string;
+        origin_type: string | null;
+        wikimedia_validated: boolean | null;
+        admin_blocked: boolean;
+      }
+    | undefined,
 ): boolean {
-  if (row.assignment_status !== 'active') return false;
+  if (!isPubliclyVisibleAssignmentStatus(row.assignment_status)) return false;
   if (!row.media_asset_id?.trim()) return false;
-  if (!assetStatus) return false;
+  if (!asset?.asset_status) return false;
   try {
-    return isPublicUsableImageAssetStatus(parseImageAssetStatusDb(assetStatus));
+    return isAssetEligibleForPublicUse({
+      originType: asset.origin_type,
+      assetStatus: parseImageAssetStatusDb(asset.asset_status),
+      wikimediaValidated: asset.wikimedia_validated,
+      adminBlocked: asset.admin_blocked,
+    });
   } catch {
     return false;
   }
@@ -91,7 +104,6 @@ export async function filterPatronGalleryByAssignmentVisibility<
     if (!byId) {
       return false;
     }
-    const assetStatus = assets.get(byId.media_asset_id)?.asset_status ?? null;
-    return isGalleryAssignmentPubliclyVisible(byId, assetStatus);
+    return isGalleryAssignmentPubliclyVisible(byId, assets.get(byId.media_asset_id));
   });
 }

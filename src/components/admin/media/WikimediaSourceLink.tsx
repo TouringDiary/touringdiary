@@ -6,9 +6,7 @@ function isAllowedCommonsOrWikidataUrl(url: string): boolean {
     if (parsed.protocol !== 'https:') return false;
     const host = parsed.hostname.toLowerCase();
     return (
-      host === 'commons.wikimedia.org' ||
-      host === 'www.wikidata.org' ||
-      host.endsWith('.wikimedia.org')
+      host === 'commons.wikimedia.org' || host === 'www.wikidata.org' || host === 'wikidata.org'
     );
   } catch {
     return false;
@@ -18,11 +16,13 @@ function isAllowedCommonsOrWikidataUrl(url: string): boolean {
 type WikimediaSourceLinkProps = {
   sourceUrl?: string | null;
   label?: string;
+  className?: string;
 };
 
 export const WikimediaSourceLink = ({
   sourceUrl,
   label = 'Apri su Wikimedia Commons',
+  className,
 }: WikimediaSourceLinkProps) => {
   const href = sourceUrl?.trim() ?? '';
   if (!href || !isAllowedCommonsOrWikidataUrl(href)) return null;
@@ -32,7 +32,7 @@ export const WikimediaSourceLink = ({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      className={`inline-flex items-center gap-1.5 text-sm text-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${className ?? ''}`}
     >
       <ExternalLink className="h-4 w-4 shrink-0" aria-hidden />
       {label}

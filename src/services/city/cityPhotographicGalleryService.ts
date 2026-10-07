@@ -1,4 +1,5 @@
-import { type ImageAssetStatusDb, isPublicUsableImageAssetStatus } from '@/constants/governance';
+import type { ImageAssetStatusDb } from '@/constants/governance';
+import { isAssetEligibleForPublicUse } from '@/domain/media/imagePublicationPolicy';
 import type { MediaAsset, MediaStatus } from '@/types/index';
 import {
   buildPublicStorageUrl,
@@ -38,7 +39,7 @@ export async function listCityPhotographicGalleryItems(
     .eq('city_id', trimmedCityId)
     .eq('assignment_role', 'gallery')
     .eq('is_current', true)
-    .eq('assignment_status', 'active');
+    .in('assignment_status', ['active', 'restored']);
 
   if (error) {
     throw new Error(`Lettura galleria fotografica città fallita: ${error.message}`);
@@ -65,7 +66,15 @@ export async function listCityPhotographicGalleryItems(
   const items: CityPhotographicGalleryItem[] = [];
   for (const row of assignmentRows) {
     const asset = assetById.get(row.media_asset_id);
-    if (!asset || !isPublicUsableImageAssetStatus(asset.asset_status)) {
+    if (
+      !asset ||
+      !isAssetEligibleForPublicUse({
+        originType: asset.origin_type,
+        assetStatus: asset.asset_status,
+        wikimediaValidated: asset.wikimedia_validated,
+        adminBlocked: asset.admin_blocked,
+      })
+    ) {
       continue;
     }
 
@@ -139,7 +148,7 @@ async function revokeCityPhotographicGalleryAssignment(
     .eq('city_id', trimmedCityId)
     .eq('assignment_role', 'gallery')
     .eq('is_current', true)
-    .eq('assignment_status', 'active')
+    .in('assignment_status', ['active', 'restored'])
     .select('id');
 
   if (error) {

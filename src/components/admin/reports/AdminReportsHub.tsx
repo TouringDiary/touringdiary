@@ -7,6 +7,7 @@ import { AdminReportsAiTab } from './AdminReportsAiTab';
 import { AdminReportsCommunityTab } from './AdminReportsCommunityTab';
 import { AdminReportsFamousPersonTab } from './AdminReportsFamousPersonTab';
 import { AdminReportsPatronTab } from './AdminReportsPatronTab';
+import { AdminReportsWikimediaTab } from './AdminReportsWikimediaTab';
 import { ReportsStatusLegend } from './ReportsStatusLegend';
 import { ADMIN_REPORTS_TABS, type AdminReportsTabId } from './reportsHubConstants';
 
@@ -20,6 +21,8 @@ const renderTabPanel = (tabId: AdminReportsTabId, onAiQueueChanged?: () => void)
       return <AdminReportsFamousPersonTab />;
     case 'ai':
       return <AdminReportsAiTab onQueueChanged={onAiQueueChanged} />;
+    case 'wikimedia':
+      return <AdminReportsWikimediaTab />;
     default:
       return null;
   }

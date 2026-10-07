@@ -15,6 +15,7 @@ import type {
   PoiSubCategory,
 } from '../index';
 import { EMPTY_AFFILIATE_LINKS } from '../shared/primitives';
+import type { Json } from '../supabase';
 
 /**
  * PoiFormData: Stato intermedio per il form di editing POI.
@@ -64,6 +65,16 @@ export interface PoiFormData {
     evening: string;
     isEstimated: boolean;
   };
+  /**
+   * Snapshot DB. `*Edited` diventa true solo quando l'utente assegna il campo,
+   * non quando il valore è fuori whitelist.
+   */
+  subCategorySourceLoaded: boolean;
+  subCategorySource: string | null;
+  subCategoryEdited: boolean;
+  openingHoursSourceLoaded: boolean;
+  openingHoursSource: Json | null;
+  openingHoursEdited: boolean;
 
   // --- Readonly/System Metadata (Per Visualizzazione e Preservazione) ---
   readonly createdAt?: string;
@@ -147,6 +158,14 @@ export type OpeningHoursGateInput = {
   isEstimated?: boolean | null;
 };
 
+/** POI già persistito e campo non assegnato di nuovo dall'utente. */
+export const isAdminSubCategoryPristine = (formData: PoiFormData): boolean =>
+  formData.id.trim() !== '' && formData.subCategorySourceLoaded && !formData.subCategoryEdited;
+
+/** POI già persistito e orari non assegnati di nuovo dall'utente. */
+export const isAdminOpeningHoursPristine = (formData: PoiFormData): boolean =>
+  formData.id.trim() !== '' && formData.openingHoursSourceLoaded && !formData.openingHoursEdited;
+
 export const hasRequiredOpeningHours = (oh: OpeningHoursGateInput): boolean => {
   if (!oh.days || oh.days.length !== CANONICAL_POI_OPENING_DAYS.length) return false;
   for (const day of CANONICAL_POI_OPENING_DAYS) {
@@ -170,27 +189,37 @@ export const normalizePoiFormData = (formData: PoiFormData): PointOfInterest => 
     affiliate[key] = val && val.trim() !== '' ? val.trim() : null;
   });
 
-  // 2. Opening Hours — obbligatorie per dominio (no fallback inventato)
-  if (!hasRequiredOpeningHours(formData.openingHours)) {
+  // 2. Opening Hours — obbligatorie solo se l'utente le modifica o il POI è nuovo.
+  const preserveOpeningHours = isAdminOpeningHoursPristine(formData);
+  if (!preserveOpeningHours && !hasRequiredOpeningHours(formData.openingHours)) {
     throw new Error(
       'Opening hours incomplete: days and at least one time slot (morning/afternoon/evening) are required.',
     );
   }
-  const openingHours: OpeningHours = {
-    days: formData.openingHours.days,
-    morning: formData.openingHours.morning.trim() || null,
-    afternoon: formData.openingHours.afternoon.trim() || null,
-    evening: formData.openingHours.evening.trim() || null,
-    isEstimated: formData.openingHours.isEstimated ?? false,
-  };
+  const openingHours: OpeningHours | null = preserveOpeningHours
+    ? null
+    : {
+        days: formData.openingHours.days,
+        morning: formData.openingHours.morning.trim() || null,
+        afternoon: formData.openingHours.afternoon.trim() || null,
+        evening: formData.openingHours.evening.trim() || null,
+        isEstimated: formData.openingHours.isEstimated ?? false,
+      };
 
   // 3. Price Level — opzionale sul domain; 1..4 solo se valore form valido (form UX default = 1)
   const floorLevel = Math.floor(formData.priceLevel);
   const priceLevel = isPriceLevel(floorLevel) ? floorLevel : undefined;
 
   // 4. Validazione runtime type-safe (type guard locali)
+  const preserveSubCategory = isAdminSubCategoryPristine(formData);
   const subCatInput = formData.subCategory.trim();
   const subCategory = isPoiSubCategory(subCatInput) ? subCatInput : undefined;
+  const adminSubCategoryWrite: PointOfInterest['adminSubCategoryWrite'] = preserveSubCategory
+    ? { mode: 'preserve', value: formData.subCategorySource }
+    : { mode: 'replace', value: subCatInput.length > 0 ? subCatInput : null };
+  const adminOpeningHoursWrite: PointOfInterest['adminOpeningHoursWrite'] = preserveOpeningHours
+    ? { mode: 'preserve', value: formData.openingHoursSource }
+    : undefined;
 
   const tourismInterest = isTourismInterest(formData.tourismInterest)
     ? formData.tourismInterest
@@ -222,6 +251,9 @@ export const normalizePoiFormData = (formData: PoiFormData): PointOfInterest => 
     image_status: formData.image_status,
     category: formData.category,
     subCategory,
+    subCategorySourceLoaded: formData.subCategorySourceLoaded,
+    subCategorySource: formData.subCategorySource,
+    adminSubCategoryWrite,
     ...(hasUsableCoords ? { coords: { lat, lng } } : {}),
     address: formData.address.trim() || undefined,
     priceLevel,
@@ -240,6 +272,9 @@ export const normalizePoiFormData = (formData: PoiFormData): PointOfInterest => 
 
     affiliate,
     openingHours,
+    openingHoursSourceLoaded: formData.openingHoursSourceLoaded,
+    openingHoursSource: formData.openingHoursSource,
+    adminOpeningHoursWrite,
 
     contactInfo: {
       website: formData.website.trim() || null,
@@ -302,6 +337,12 @@ export const mapPoiToFormData = (poi: PointOfInterest | null): PoiFormData => {
         evening: '',
         isEstimated: false,
       },
+      subCategorySourceLoaded: false,
+      subCategorySource: null,
+      subCategoryEdited: false,
+      openingHoursSourceLoaded: false,
+      openingHoursSource: null,
+      openingHoursEdited: false,
       reviews: null,
       linkMetadata: null,
       cityId: undefined,
@@ -351,6 +392,12 @@ export const mapPoiToFormData = (poi: PointOfInterest | null): PoiFormData => {
       evening: poi.openingHours?.evening ?? '',
       isEstimated: poi.openingHours?.isEstimated ?? false,
     },
+    subCategorySourceLoaded: poi.subCategorySourceLoaded === true,
+    subCategorySource: poi.subCategorySource ?? null,
+    subCategoryEdited: false,
+    openingHoursSourceLoaded: poi.openingHoursSourceLoaded === true,
+    openingHoursSource: poi.openingHoursSource ?? null,
+    openingHoursEdited: false,
 
     createdAt: poi.createdAt,
     createdBy: poi.createdBy,

@@ -7,6 +7,7 @@ import type {
   PoiSubCategory,
   Review,
 } from '../shared';
+import type { Json } from '../supabase';
 
 export type {
   AffiliateLinks,
@@ -70,6 +71,24 @@ export interface PointOfInterest {
   visitDuration?: string;
   suggestedBy?: string;
   openingHours?: OpeningHours | null;
+  /**
+   * JSON letto da `pois.opening_hours`. Resta distinto da `openingHours`:
+   * il salvataggio admin lo reinvia solo se l'utente non modifica gli orari.
+   */
+  openingHoursSourceLoaded?: boolean;
+  openingHoursSource?: Json | null;
+  /** Testo letto da `pois.sub_category`, anche fuori da `PoiSubCategory`. */
+  subCategorySourceLoaded?: boolean;
+  subCategorySource?: string | null;
+  /**
+   * Istruzione di scrittura admin. Assente nei salvataggi AI e staging:
+   * in quel caso `poiWrite` continua a usare `subCategory`.
+   */
+  adminSubCategoryWrite?:
+    | { mode: 'preserve'; value: string | null }
+    | { mode: 'replace'; value: string | null };
+  /** Se presente, `poiWrite` scrive questo JSON e non serializza `openingHours`. */
+  adminOpeningHoursWrite?: { mode: 'preserve'; value: Json | null };
   reviews?: Review[] | null;
   tags?: string[];
 

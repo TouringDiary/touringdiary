@@ -32,7 +32,10 @@ import type { SaveCityPersonInput } from '../../../services/city/entitiesService
 import { loadFamousPersonTaxonomy } from '../../../services/city/famousPersonCategoryService';
 import { saveCityPerson } from '../../../services/cityService';
 import { findExistingPortrait } from '../../../services/mediaService';
-import { runCommonsDownloadPipeline } from '../../../services/wikimedia/commonsDownloadPipeline';
+import {
+  asCommonsDownloadImported,
+  runCommonsDownloadPipeline,
+} from '../../../services/wikimedia/commonsDownloadPipeline';
 import {
   lookupWikidataP18Proposal,
   type WikidataCandidate,
@@ -665,43 +668,21 @@ export const usePeopleAI = ({
         },
       });
 
-      if (!result.ok) {
+      const imported = asCommonsDownloadImported(result);
+      if ('failed' in imported) {
         setWikidataImportUi((prev) =>
-          prev ? { ...prev, errorMessage: `${result.stage}: ${result.message}` } : prev,
+          prev
+            ? { ...prev, errorMessage: `${imported.failed.stage}: ${imported.failed.message}` }
+            : prev,
         );
         return;
       }
 
-      if (result.autoVerified) {
-        const person = peopleList.find((p) => p.id === wikidataImportUi.personId);
-        if (person) {
-          const updated = await saveCityPerson(cityId, {
-            ...toSaveCityPersonInput(person),
-            imageUrl: result.publicUrl,
-            imageOriginType: 'wikimedia',
-          });
-          setPeopleList((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
-        }
-        await reloadCurrentCity();
-        closeWikidataImportUi();
-        alert(`Foto reale verificata (CC BY 4.0) importata per «${wikidataImportUi.personName}».`);
-      } else if (result.queuedForAdminVerify) {
-        await reloadCurrentCity();
-        closeWikidataImportUi();
-        alert(
-          `Import Wikimedia per «${wikidataImportUi.personName}» messo in coda verifica Admin. L'immagine corrente della persona non è stata sostituita.`,
-        );
-      } else {
-        setWikidataImportUi((prev) =>
-          prev
-            ? {
-                ...prev,
-                errorMessage:
-                  'Esito pipeline Wikimedia inatteso: nessuna verifica automatica né coda Admin — immagine non promossa.',
-              }
-            : prev,
-        );
-      }
+      await reloadCurrentCity();
+      closeWikidataImportUi();
+      alert(
+        `Import Wikimedia per «${wikidataImportUi.personName}» resta DA VALIDARE. I controlli automatici non convalidano la foto e l'immagine corrente della persona non è stata sostituita.`,
+      );
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       setWikidataImportUi((prev) => (prev ? { ...prev, errorMessage: message } : prev));

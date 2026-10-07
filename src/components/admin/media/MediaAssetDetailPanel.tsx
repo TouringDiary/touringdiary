@@ -1,5 +1,6 @@
 import { Archive, ExternalLink, History, Link2, Loader2, X } from 'lucide-react';
 import { type RefObject, useEffect, useId, useRef, useState } from 'react';
+import { assignmentStatusLabel } from '@/constants/governance';
 
 function getFocusableElements(root: HTMLElement): HTMLElement[] {
   return Array.from(
@@ -56,6 +57,8 @@ import {
   IMAGE_VERIFICATION_STEP_OUTCOME_LABELS,
   isImageVerificationStepOutcomeDb,
 } from '@/constants/governance';
+import { isExactCanonicalVerificationStepSet } from '@/constants/imageVerificationSteps';
+import { loadLatestCanonicalVerificationRun } from '@/services/media/canonicalVerificationRun';
 import { mapOriginTypeToDisplay } from '@/services/media/mediaAssetService';
 import {
   listMediaAssetAssignments,
@@ -65,10 +68,7 @@ import {
   type MediaCatalogRow,
   safeArchiveMediaAsset,
 } from '@/services/media/mediaCatalogService';
-import {
-  mf3ImageVerificationRunsTable,
-  mf3ImageVerificationStepsTable,
-} from '@/services/media/mf3DbClient';
+import { mf3ImageVerificationStepsTable } from '@/services/media/mf3DbClient';
 import { listContentReportsForMediaAsset } from '@/services/reports/contentReportService';
 import type { ContentReport } from '@/types/models/contentReport';
 
@@ -99,6 +99,15 @@ export const MediaAssetDetailPanel = ({
   const [error, setError] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
   const [archiveNote, setArchiveNote] = useState('');
+  const archiveNoteId = useId();
+  const hasOpenReport = reports.some(
+    (report) => report.status === 'nuovo' || report.status === 'in_verifica',
+  );
+  const hasCurrentRestoredUse = assignments.some(
+    (usage) => usage.isCurrent && usage.assignmentStatus === 'restored',
+  );
+  const archiveUnavailable =
+    loading || asset.activeUsageCount > 0 || hasCurrentRestoredUse || hasOpenReport;
 
   useEffect(() => {
     let cancelled = false;
@@ -121,40 +130,34 @@ export const MediaAssetDetailPanel = ({
         setHistory(historyRows);
         setReports(reportRows);
 
-        const { data: runs, error: runsError } = await mf3ImageVerificationRunsTable()
-          .select('id')
-          .eq('media_asset_id', asset.id)
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        if (runsError) {
-          throw new Error(runsError.message);
-        }
-
-        const firstRun = (runs?.[0] ?? null) as { id?: string } | null;
-        const runId = firstRun && typeof firstRun.id === 'string' ? firstRun.id : null;
-        if (runId) {
+        const canonicalRun = await loadLatestCanonicalVerificationRun(asset.id);
+        if (!canonicalRun) {
+          if (!cancelled) setVerificationSteps([]);
+        } else {
           const { data: steps, error: stepsError } = await mf3ImageVerificationStepsTable()
             .select('step_code, outcome, ai_rationale')
-            .eq('run_id', runId)
+            .eq('run_id', canonicalRun.id)
             .order('step_order', { ascending: true });
           if (stepsError) {
             throw new Error(stepsError.message);
           }
-          if (!cancelled) {
-            setVerificationSteps(
-              ((steps ?? []) as unknown[]).map((raw) => {
-                const row = raw as Record<string, unknown>;
-                return {
-                  stepCode: String(row.step_code ?? ''),
-                  outcome: String(row.outcome ?? ''),
-                  aiRationale: typeof row.ai_rationale === 'string' ? row.ai_rationale : null,
-                };
-              }),
-            );
+          const codes: string[] = [];
+          const parsed: VerificationStepRow[] = [];
+          for (const row of steps ?? []) {
+            if (!row?.step_code || !row.outcome) {
+              throw new Error('Step del run di verifica non valido.');
+            }
+            codes.push(row.step_code);
+            parsed.push({
+              stepCode: row.step_code,
+              outcome: row.outcome,
+              aiRationale: row.ai_rationale,
+            });
           }
-        } else if (!cancelled) {
-          setVerificationSteps([]);
+          if (!isExactCanonicalVerificationStepSet(codes)) {
+            throw new Error('Run di verifica non canonico.');
+          }
+          if (!cancelled) setVerificationSteps(parsed);
         }
       } catch (err) {
         if (!cancelled) {
@@ -181,6 +184,7 @@ export const MediaAssetDetailPanel = ({
   }, [archiving, onClose]);
 
   const handleArchive = async () => {
+    if (archiveUnavailable) return;
     setArchiving(true);
     setError(null);
     try {
@@ -330,7 +334,7 @@ export const MediaAssetDetailPanel = ({
                     </div>
                     <div className="text-slate-400">
                       {usage.cityName ?? usage.cityId} · {usage.assignmentRole} ·{' '}
-                      {usage.assignmentStatus}
+                      {assignmentStatusLabel(usage.assignmentStatus)}
                       {usage.isCurrent ? ' · corrente' : ''}
                     </div>
                   </li>
@@ -339,11 +343,11 @@ export const MediaAssetDetailPanel = ({
             )}
           </section>
 
-          {verificationSteps.length > 0 ? (
-            <section>
-              <h3 className="mb-2 text-xs font-black uppercase text-slate-400">
-                Verifica licenza (ultimo run)
-              </h3>
+          <section>
+            <h3 className="mb-2 text-xs font-black uppercase text-slate-400">
+              Verifica licenza (ultimo run completo)
+            </h3>
+            {verificationSteps.length > 0 ? (
               <ul className="space-y-1 text-[11px]">
                 {verificationSteps.map((step) => (
                   <li
@@ -359,8 +363,10 @@ export const MediaAssetDetailPanel = ({
                   </li>
                 ))}
               </ul>
-            </section>
-          ) : null}
+            ) : (
+              <p className="text-xs text-slate-500">Nessun run completo canonico.</p>
+            )}
+          </section>
 
           <section>
             <h3 className="mb-2 flex items-center gap-2 text-xs font-black uppercase text-slate-400">
@@ -420,24 +426,42 @@ export const MediaAssetDetailPanel = ({
               Bloccato se l&apos;asset ha assignment attivi o segnalazioni aperte. Non elimina lo
               storico.
             </p>
+            <label
+              htmlFor={archiveNoteId}
+              className="mb-1 block text-[11px] font-semibold text-slate-300"
+            >
+              Motivazione archivio
+            </label>
             <textarea
+              id={archiveNoteId}
               value={archiveNote}
               onChange={(e) => setArchiveNote(e.target.value)}
               rows={2}
-              placeholder="Motivazione archivio (opzionale)"
+              placeholder="Opzionale"
               className="mb-2 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white"
             />
             <button
               type="button"
-              disabled={archiving || asset.activeUsageCount > 0}
+              disabled={archiving || archiveUnavailable}
               onClick={() => void handleArchive()}
-              className="min-h-10 rounded-lg bg-amber-700 px-3 py-2 text-xs font-bold uppercase text-white hover:bg-amber-600 disabled:opacity-50"
+              className="min-h-11 rounded-lg bg-amber-700 px-3 py-2 text-xs font-bold uppercase text-white hover:bg-amber-600 disabled:opacity-50"
             >
               {archiving ? 'Archiviazione…' : 'Archivia in sicurezza'}
             </button>
             {asset.activeUsageCount > 0 ? (
               <p className="mt-2 text-[11px] text-amber-300">
                 Asset in uso ({asset.activeUsageCount}) — archivio non disponibile.
+              </p>
+            ) : null}
+            {hasCurrentRestoredUse ? (
+              <p className="mt-2 text-[11px] text-amber-300">
+                Utilizzo ripristinato corrente — archivio non disponibile. Il controllo su
+                assignment active e segnalazioni aperte resta nella RPC.
+              </p>
+            ) : null}
+            {hasOpenReport ? (
+              <p className="mt-2 text-[11px] text-amber-300">
+                Segnalazioni aperte — archivio non disponibile.
               </p>
             ) : null}
           </section>

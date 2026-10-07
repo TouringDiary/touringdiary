@@ -1,5 +1,6 @@
 import { Loader2, Search } from 'lucide-react';
 import type { PoiFormData } from '../../../types/write/poiForm';
+import { usePoiModalSurface } from './usePoiModalSurface';
 
 interface PoiLogisticsTabProps {
   formData: PoiFormData;
@@ -16,16 +17,19 @@ export const PoiLogisticsTab = ({
   handleAutoLocate,
   isLocating,
 }: PoiLogisticsTabProps) => {
+  const { cardSurface, sectionTitle, cardLabel } = usePoiModalSurface();
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
-      <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800 mb-4">
-        <label className="text-xs font-bold text-slate-500 uppercase block mb-1 flex justify-between items-center">
+    <div className="space-y-6 min-w-0 w-full">
+      <div className={`${cardSurface} min-w-0`}>
+        <label
+          className={`${sectionTitle} block mb-1 flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center`}
+        >
           Coordinate GPS
           <button
             type="button"
             onClick={handleAutoLocate}
             disabled={isLocating}
-            className="text-[10px] bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded flex items-center gap-1.5 transition-all shadow-lg border border-indigo-400"
+            className="min-h-11 text-xs font-bold uppercase bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg flex items-center gap-1.5 transition-all"
           >
             {isLocating ? (
               <Loader2 className="w-3 h-3 animate-spin" />
@@ -35,11 +39,11 @@ export const PoiLogisticsTab = ({
             {isLocating ? 'Ricerca...' : 'Trova GPS con AI'}
           </button>
         </label>
-        <div className="grid grid-cols-2 gap-6 mt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-2 min-w-0">
           <div>
             <label
               htmlFor="fld-admin-poimodal-poilogisticstab-tsx-l40"
-              className="text-[10px] text-slate-500 font-bold block mb-1"
+              className={`${cardLabel} block mb-1`}
             >
               Latitudine
             </label>
@@ -54,7 +58,7 @@ export const PoiLogisticsTab = ({
           <div>
             <label
               htmlFor="fld-admin-poimodal-poilogisticstab-tsx-l49"
-              className="text-[10px] text-slate-500 font-bold block mb-1"
+              className={`${cardLabel} block mb-1`}
             >
               Longitudine
             </label>
@@ -72,7 +76,7 @@ export const PoiLogisticsTab = ({
       <div>
         <label
           htmlFor="fld-admin-poimodal-poilogisticstab-tsx-l61"
-          className="text-xs font-bold text-slate-500 uppercase block mb-1"
+          className={`${cardLabel} block mb-1`}
         >
           Indirizzo
         </label>
@@ -85,11 +89,11 @@ export const PoiLogisticsTab = ({
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 min-w-0">
         <div>
           <label
             htmlFor="fld-admin-poimodal-poilogisticstab-tsx-l72"
-            className="text-xs font-bold text-slate-500 uppercase block mb-1"
+            className={`${cardLabel} block mb-1`}
           >
             Durata Visita
           </label>
@@ -104,7 +108,7 @@ export const PoiLogisticsTab = ({
         <div>
           <label
             htmlFor="fld-admin-poimodal-poilogisticstab-tsx-l83"
-            className="text-xs font-bold text-slate-500 uppercase block mb-1"
+            className={`${cardLabel} block mb-1`}
           >
             Fascia Prezzo (1-4)
           </label>

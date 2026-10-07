@@ -97,7 +97,7 @@ async function fetchCurrentAssignmentPage(
       'id, entity_type, entity_id, city_id, media_asset_id, assignment_role, source_image_url, source_storage_bucket, source_storage_path',
     )
     .eq('is_current', true)
-    .in('assignment_status', ['active', 'suspended'])
+    .in('assignment_status', ['active', 'restored', 'suspended'])
     .order('id', { ascending: true })
     .range(offset, offset + USAGE_MAP_PAGE_SIZE - 1);
 

@@ -4,6 +4,11 @@
  */
 
 import { parseCommonsLicenseMetadata } from '../src/services/wikimedia/commonsLicenseParser';
+import {
+  classifyWikimediaStorageContent,
+  shouldAssignWikimediaAsset,
+} from '../src/services/wikimedia/wikimediaStorageCollision';
+import { buildWikimediaStorageObjectPath } from '../src/services/wikimedia/wikimediaStorageObjectPath';
 
 const issues: string[] = [];
 
@@ -27,23 +32,17 @@ function assertRawHttpUrl(value: string | null | undefined, label: string): void
   }
 }
 
-const CC_BY_40_LICENSE_URL =
-  'https://creativecommons.org/licenses/by/4.0/';
+const CC_BY_40_LICENSE_URL = 'https://creativecommons.org/licenses/by/4.0/';
 
-const CC_BY_SA_LICENSE_URL =
-  'https://creativecommons.org/licenses/by-sa/4.0/';
+const CC_BY_SA_LICENSE_URL = 'https://creativecommons.org/licenses/by-sa/4.0/';
 
-const COMMONS_FILE_EXAMPLE_PAGE =
-  'https://commons.wikimedia.org/wiki/File:Example.jpg';
+const COMMONS_FILE_EXAMPLE_PAGE = 'https://commons.wikimedia.org/wiki/File:Example.jpg';
 
-const COMMONS_FILE_OTHER_PAGE =
-  'https://commons.wikimedia.org/wiki/File:Other.jpg';
+const COMMONS_FILE_OTHER_PAGE = 'https://commons.wikimedia.org/wiki/File:Other.jpg';
 
-const COMMONS_FILE_TRAP_PAGE =
-  'https://commons.wikimedia.org/wiki/File:Trap.jpg';
+const COMMONS_FILE_TRAP_PAGE = 'https://commons.wikimedia.org/wiki/File:Trap.jpg';
 
-const COMMONS_FILE_AUTHOR_ONLY_PAGE =
-  'https://commons.wikimedia.org/wiki/File:AuthorOnly.jpg';
+const COMMONS_FILE_AUTHOR_ONLY_PAGE = 'https://commons.wikimedia.org/wiki/File:AuthorOnly.jpg';
 
 const UPLOAD_WIKIMEDIA_DIRECT_EXAMPLE =
   'https://upload.wikimedia.org/wikipedia/commons/3/3a/Example.jpg';
@@ -160,6 +159,89 @@ const uploadDirectUrl = parseCommonsLicenseMetadata(
 assert(
   sourceProvenanceOutcome(uploadDirectUrl) !== 'verified',
   'URL upload.wikimedia.org direct → source_provenance NON verified',
+);
+
+const basilicaPath = buildWikimediaStorageObjectPath({
+  folder: 'wikimedia/quarantine',
+  qid: 'Q3635748',
+  contentHash: '84fd090d2e4397b2b68c59e85ad4e033',
+  commonsFileTitle: 'File:Santa croce Torre del Greco.jpg',
+  mime: 'image/jpeg',
+});
+
+assert(
+  basilicaPath ===
+    'wikimedia/quarantine/Q3635748/84fd090d2e4397b2b68c59e85ad4e033_Santa_croce_Torre_del_Greco.jpg',
+  `Path basilica con un solo suffisso MIME, ottenuto: ${basilicaPath}`,
+);
+assert(!basilicaPath.endsWith('.jpg.jpg'), 'Il path non termina con .jpg.jpg');
+
+const pngFromJpegTitle = buildWikimediaStorageObjectPath({
+  folder: 'wikimedia/quarantine',
+  qid: 'Q1',
+  contentHash: 'a'.repeat(64),
+  commonsFileTitle: 'File:Example.jpeg',
+  mime: 'image/png',
+});
+assert(
+  pngFromJpegTitle.endsWith('_Example.png') && !pngFromJpegTitle.includes('.jpeg'),
+  `Il suffisso segue il MIME dei byte, ottenuto: ${pngFromJpegTitle}`,
+);
+
+const untitled = buildWikimediaStorageObjectPath({
+  folder: 'verified/wikimedia',
+  qid: 'Q2',
+  contentHash: 'b'.repeat(64),
+  commonsFileTitle: 'File:SoloNome',
+  mime: 'image/webp',
+});
+assert(
+  untitled.endsWith('_SoloNome.webp'),
+  `Titolo senza estensione riceve solo il suffisso MIME, ottenuto: ${untitled}`,
+);
+
+const sameHash = '84fd090d2e4397b2b68c59e85ad4e033711f5fe335d42121382182a860879fa1';
+assert(classifyWikimediaStorageContent(sameHash, null) === 'absent', 'Hash assente → absent');
+assert(
+  classifyWikimediaStorageContent(sameHash, sameHash) === 'identical',
+  'Stesso SHA-256 → identical',
+);
+assert(
+  classifyWikimediaStorageContent(sameHash, `${sameHash.slice(0, -1)}0`) === 'different',
+  'SHA-256 diverso → different',
+);
+
+const alternatePath = buildWikimediaStorageObjectPath({
+  folder: 'wikimedia/quarantine',
+  qid: 'Q3635748',
+  contentHash: sameHash,
+  commonsFileTitle: 'File:Santa croce Torre del Greco.jpg',
+  mime: 'image/jpeg',
+  contentHashLength: 64,
+});
+assert(
+  alternatePath !== basilicaPath &&
+    alternatePath.endsWith('.jpg') &&
+    !alternatePath.endsWith('.jpg.jpg'),
+  `Il path alternativo non sostituisce il canonico, ottenuto: ${alternatePath}`,
+);
+assert(alternatePath.includes(sameHash), 'Il path alternativo usa lo SHA-256 completo');
+
+assert(
+  shouldAssignWikimediaAsset({ autoPath: true, assignToEntity: true, adminReuse: false }),
+  'Percorso CC BY 4.0 assegna',
+);
+assert(
+  shouldAssignWikimediaAsset({ autoPath: false, assignToEntity: true, adminReuse: true }),
+  'Riuso Admin assegna lo stesso asset senza richiedere il percorso automatico',
+);
+assert(
+  !shouldAssignWikimediaAsset({ autoPath: false, assignToEntity: true, adminReuse: false }),
+  'Import in quarantena non crea assignment',
+);
+assert(
+  !shouldAssignWikimediaAsset({ autoPath: true, assignToEntity: false, adminReuse: true }),
+  'assignToEntity false non assegna',
 );
 
 if (issues.length > 0) {

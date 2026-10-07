@@ -2,26 +2,25 @@ import { AlertCircle, TrendingUp } from 'lucide-react';
 import { useMemo } from 'react';
 import { getCachedSetting, SETTINGS_KEYS } from '../../../services/settingsService';
 import type { PointOfInterest } from '../../../types/index';
-import type { PoiFormData } from '../../../types/write/poiForm';
+import { CANONICAL_POI_OPENING_DAYS, type PoiFormData } from '../../../types/write/poiForm';
 import { AiFieldHelper } from '../AiFieldHelper';
+import { usePoiModalSurface } from './usePoiModalSurface';
 
 export interface PoiInfoTabProps {
   formData: PoiFormData;
   updateField: <K extends keyof PoiFormData>(field: K, value: PoiFormData[K]) => void;
 }
 
+type CanonicalOpeningDay = (typeof CANONICAL_POI_OPENING_DAYS)[number];
+
 export const PoiInfoTab = ({ formData, updateField }: PoiInfoTabProps) => {
-  const toggleDay = (day: string) => {
+  const { cardSurface, sectionTitle, cardLabel } = usePoiModalSurface();
+  const toggleDay = (day: CanonicalOpeningDay) => {
     const currentDays = formData.openingHours?.days || [];
-    let newDays;
-    if (currentDays.includes(day)) {
-      newDays = currentDays.filter((d) => d !== day);
-    } else {
-      // Keep correct sort order
-      const fullWeek = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
-      newDays = fullWeek.filter((d) => currentDays.includes(d) || d === day);
-    }
-    updateField('openingHours', { ...formData.openingHours, days: newDays });
+    const newDays = currentDays.includes(day)
+      ? currentDays.filter((item) => item !== day)
+      : CANONICAL_POI_OPENING_DAYS.filter((item) => currentDays.includes(item) || item === day);
+    updateField('openingHours', { ...formData.openingHours, days: [...newDays] });
   };
 
   const updateTime = (key: 'morning' | 'afternoon', val: string) => {
@@ -59,7 +58,7 @@ export const PoiInfoTab = ({ formData, updateField }: PoiInfoTabProps) => {
     const advancedStructure = getCachedSetting<Record<string, PoiStructureGroup[]>>(
       SETTINGS_KEYS.POI_ADVANCED_STRUCTURE,
     );
-    if (advancedStructure && advancedStructure[catKey]) {
+    if (advancedStructure?.[catKey]) {
       // Appiattisci i gruppi per ottenere una lista semplice di opzioni
       const flatOptions: Option[] = [];
       advancedStructure[catKey].forEach((group) => {
@@ -73,14 +72,15 @@ export const PoiInfoTab = ({ formData, updateField }: PoiInfoTabProps) => {
     return structure ? structure[catKey] || [] : [];
   }, [formData.category]);
 
-  const renderDayButton = (day: string) => {
+  const renderDayButton = (day: CanonicalOpeningDay) => {
     const isActive = (formData.openingHours?.days || []).includes(day);
     return (
       <button
         type="button"
         key={day}
+        aria-pressed={isActive}
         onClick={() => toggleDay(day)}
-        className={`px-3 py-2 rounded-lg text-[10px] font-bold uppercase transition-all flex-1 ${isActive ? 'bg-indigo-600 text-white shadow' : 'bg-slate-950 text-slate-500 border border-slate-700 hover:bg-slate-800'}`}
+        className={`min-h-11 w-full min-w-0 rounded-lg px-0.5 text-[10px] font-bold uppercase transition-all ${isActive ? 'bg-indigo-600 text-white shadow' : 'bg-slate-950 text-slate-500 border border-slate-700 hover:bg-slate-800'}`}
       >
         {day}
       </button>
@@ -103,12 +103,12 @@ export const PoiInfoTab = ({ formData, updateField }: PoiInfoTabProps) => {
   };
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
-      <div className="grid grid-cols-2 gap-6">
-        <div>
+    <div className="space-y-6 min-w-0 w-full">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 min-w-0">
+        <div className="min-w-0">
           <label
             htmlFor="fld-admin-poimodal-poiinfotab-tsx-l109"
-            className="text-xs font-bold text-slate-500 uppercase block mb-1"
+            className={`${cardLabel} block mb-1`}
           >
             Nome Luogo
           </label>
@@ -120,10 +120,10 @@ export const PoiInfoTab = ({ formData, updateField }: PoiInfoTabProps) => {
             className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-indigo-500 outline-none"
           />
         </div>
-        <div>
+        <div className="min-w-0">
           <label
             htmlFor="fld-admin-poimodal-poiinfotab-tsx-l120"
-            className="text-xs font-bold text-slate-500 uppercase block mb-1"
+            className={`${cardLabel} block mb-1`}
           >
             Categoria
           </label>
@@ -150,14 +150,14 @@ export const PoiInfoTab = ({ formData, updateField }: PoiInfoTabProps) => {
       </div>
 
       {/* NEW: Tourism Interest Field */}
-      <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800 animate-in fade-in">
-        <div className="flex justify-between items-center mb-2">
-          <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
+      <div className={`${cardSurface} min-w-0`}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center mb-2">
+          <h3 className={`${sectionTitle} flex items-center gap-2`}>
             <TrendingUp className="w-4 h-4 text-fuchsia-500" /> Livello Interesse Turistico
-          </label>
+          </h3>
           <span className="text-[10px] text-slate-600 italic">Proporzionale alla città</span>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <button
             type="button"
             onClick={() => updateField('tourismInterest', 'high')}
@@ -182,13 +182,11 @@ export const PoiInfoTab = ({ formData, updateField }: PoiInfoTabProps) => {
         </div>
       </div>
 
-      <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800 animate-in fade-in">
-        <label className="text-xs font-bold text-indigo-400 uppercase block mb-2">
-          Sottocategoria (Obbligatoria)
-        </label>
+      <div className={`${cardSurface} min-w-0`}>
+        <h3 className={`${sectionTitle} block mb-2`}>Sottocategoria (Obbligatoria)</h3>
 
         {availableSubCats.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto custom-scrollbar">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 max-h-40 overflow-y-auto custom-scrollbar min-w-0">
             {availableSubCats.map((sub) => (
               <button
                 type="button"
@@ -215,38 +213,25 @@ export const PoiInfoTab = ({ formData, updateField }: PoiInfoTabProps) => {
         )}
       </div>
 
-      <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
-        <label className="text-xs font-bold text-slate-500 uppercase block mb-3">
-          Orari di Apertura
-        </label>
+      <div className={`${cardSurface} min-w-0`}>
+        <h3 className={`${sectionTitle} block mb-3`}>Orari di Apertura</h3>
 
-        <div className="flex flex-col gap-2 mb-4">
-          <div className="flex items-center gap-2">
-            <span className="text-[9px] font-black text-slate-500 uppercase w-12 text-right">
-              Feriali
-            </span>
-            <div className="flex gap-1 flex-1">
-              {['Lun', 'Mar', 'Mer', 'Gio', 'Ven'].map((day) => renderDayButton(day))}
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[9px] font-black text-slate-500 uppercase w-12 text-right">
-              Weekend
-            </span>
-            <div className="flex gap-1 flex-1">
-              {['Sab', 'Dom'].map((day) => renderDayButton(day))}
-              <div className="flex-1 opacity-0"></div>
-              <div className="flex-1 opacity-0"></div>
-              <div className="flex-1 opacity-0"></div>
-            </div>
-          </div>
+        <div className="grid grid-cols-[4.75rem_repeat(5,minmax(0,1fr))] gap-x-1.5 gap-y-2 mb-4 items-center">
+          <span className="text-[9px] font-black text-slate-500 uppercase text-right whitespace-nowrap">
+            Feriali
+          </span>
+          {CANONICAL_POI_OPENING_DAYS.slice(0, 5).map((day) => renderDayButton(day))}
+          <span className="text-[9px] font-black text-slate-500 uppercase text-right whitespace-nowrap">
+            Weekend
+          </span>
+          {CANONICAL_POI_OPENING_DAYS.slice(5).map((day) => renderDayButton(day))}
         </div>
 
-        <div className="grid grid-cols-2 gap-4 border-t border-slate-800/50 pt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-white/10 pt-4 min-w-0">
           <div>
             <label
               htmlFor="fld-admin-poimodal-poiinfotab-tsx-l237"
-              className="text-[10px] text-slate-500 font-bold block mb-1"
+              className={`${cardLabel} block mb-1`}
             >
               Mattina / Continuato
             </label>
@@ -262,7 +247,7 @@ export const PoiInfoTab = ({ formData, updateField }: PoiInfoTabProps) => {
           <div>
             <label
               htmlFor="fld-admin-poimodal-poiinfotab-tsx-l249"
-              className="text-[10px] text-slate-500 font-bold block mb-1"
+              className={`${cardLabel} block mb-1`}
             >
               Pomeriggio
             </label>
@@ -284,7 +269,7 @@ export const PoiInfoTab = ({ formData, updateField }: PoiInfoTabProps) => {
       <div>
         <label
           htmlFor="fld-admin-poimodal-poiinfotab-tsx-l265"
-          className="text-xs font-bold text-slate-500 uppercase block mb-1"
+          className={`${cardLabel} block mb-1`}
         >
           Descrizione
         </label>

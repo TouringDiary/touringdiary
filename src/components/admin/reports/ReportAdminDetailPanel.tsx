@@ -1,6 +1,10 @@
 import { Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { CONTENT_REPORT_STATUS_LABELS, type ContentReportStatusDb } from '@/constants/governance';
+import {
+  assignmentStatusLabel,
+  CONTENT_REPORT_STATUS_LABELS,
+  type ContentReportStatusDb,
+} from '@/constants/governance';
 import { transitionReportStatus } from '@/services/reports/contentReportService';
 import { getReportAdminContext } from '@/services/reports/reportContextService';
 import {
@@ -137,7 +141,8 @@ export const ReportAdminDetailPanel = ({
             {context.reportedAssignment.entityName} · {context.reportedAssignment.cityName}
           </p>
           <p className="text-xs text-slate-400">
-            {context.reportedAssignment.entityType} · {context.reportedAssignment.assignmentStatus}
+            {context.reportedAssignment.entityType} ·{' '}
+            {assignmentStatusLabel(context.reportedAssignment.assignmentStatus)}
             {context.reportedAssignment.isCurrent ? ' · corrente' : ''}
           </p>
           <p className="text-[10px] text-slate-500 font-mono">

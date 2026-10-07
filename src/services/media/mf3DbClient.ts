@@ -8,7 +8,12 @@ export type Mf3RpcName =
   | 'get_ai_verify_queue_counts'
   | 'list_ai_verify_queue'
   | 'record_image_verification_run'
-  | 'complete_ai_verify_admin_decision';
+  | 'complete_ai_verify_admin_decision'
+  | 'save_wikimedia_validation_notes'
+  | 'set_wikimedia_validation'
+  | 'set_media_asset_admin_block'
+  | 'hard_delete_media_photo'
+  | 'release_media_hard_delete_objects';
 
 export async function mf3Rpc<T>(
   fn: Mf3RpcName,

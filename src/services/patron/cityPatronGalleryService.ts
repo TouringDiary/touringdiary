@@ -72,7 +72,7 @@ async function attachPatronGalleryAssignmentIds(
     .eq('city_id', cityId)
     .eq('assignment_role', 'gallery')
     .eq('is_current', true)
-    .eq('assignment_status', 'active');
+    .in('assignment_status', ['active', 'restored']);
 
   if (error) {
     throw new Error(`Lettura assignment galleria Patrono fallita: ${error.message}`);

@@ -249,6 +249,10 @@ export const mapDbPoiToApp = (db: DatabasePoi): PointOfInterest => {
 
       // Safe JSON casting
       openingHours: parseOpeningHoursFromDb(db.opening_hours) ?? null,
+      openingHoursSourceLoaded: true,
+      openingHoursSource: db.opening_hours,
+      subCategorySourceLoaded: true,
+      subCategorySource: db.sub_category,
 
       isSponsored: db.is_sponsored || false,
       wikimediaPublicEnabled: db.wikimedia_public_enabled === true,

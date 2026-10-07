@@ -5,6 +5,7 @@
  */
 
 import {
+  ASSIGNMENT_STATUS_LABELS,
   IMAGE_ASSET_STATUS_LABELS,
   isPublicUsableImageAssetStatus,
 } from '../src/constants/governance';
@@ -30,11 +31,14 @@ assert(
 
 assert(IMAGE_ASSET_STATUS_LABELS.verify_ai_image === 'VERIFICARE IMMAGINE AI', 'verify label');
 assert(isPublicUsableImageAssetStatus('active'), 'active usable');
-assert(isPublicUsableImageAssetStatus('restored'), 'restored usable');
+assert(isPublicUsableImageAssetStatus('restored'), 'asset restored usable');
 assert(!isPublicUsableImageAssetStatus('suspended'), 'suspended not usable');
 assert(!isPublicUsableImageAssetStatus('replaced'), 'replaced not usable');
 assert(!isPublicUsableImageAssetStatus('removed'), 'removed not usable');
 assert(!isPublicUsableImageAssetStatus('verify_ai_image'), 'verify_ai_image not public');
+assert(IMAGE_ASSET_STATUS_LABELS.restored === 'RIATTIVATO', 'asset restored label');
+assert(ASSIGNMENT_STATUS_LABELS.restored === 'RIPRISTINATO', 'assignment restored label');
+assert(ASSIGNMENT_STATUS_LABELS.active === 'ATTIVO', 'assignment active label');
 
 if (issues.length > 0) {
   console.error('[smoke-mf3-image-management] FAILED');

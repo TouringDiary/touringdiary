@@ -75,7 +75,7 @@ export async function findActivePatronGalleryAssignment(
     .eq('city_id', cityId)
     .eq('assignment_role', 'gallery')
     .eq('is_current', true)
-    .eq('assignment_status', 'active');
+    .in('assignment_status', ['active', 'restored']);
 
   if (storagePath.length > 0) {
     query = query

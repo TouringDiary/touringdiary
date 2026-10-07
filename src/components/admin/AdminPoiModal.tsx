@@ -13,9 +13,10 @@ import {
   Trash2,
 } from 'lucide-react';
 
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { Z_OVERLAY } from '@/constants/zIndex';
+import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap';
 import { usePoiForm } from '../../hooks/usePoiForm';
 import { deleteSinglePoi } from '../../services/cityService';
 import type { PointOfInterest } from '../../types/index';
@@ -32,9 +33,17 @@ interface AdminPoiModalProps {
   onSave: (poi: PointOfInterest) => void;
   poi: PointOfInterest | null;
   cityName?: string;
+  canHardDeletePhotos?: boolean;
 }
 
-export const AdminPoiModal = ({ isOpen, onClose, onSave, poi, cityName }: AdminPoiModalProps) => {
+export const AdminPoiModal = ({
+  isOpen,
+  onClose,
+  onSave,
+  poi,
+  cityName,
+  canHardDeletePhotos = false,
+}: AdminPoiModalProps) => {
   // USE CUSTOM HOOK
   const {
     formData,
@@ -42,6 +51,7 @@ export const AdminPoiModal = ({ isOpen, onClose, onSave, poi, cityName }: AdminP
     setIsImageValid,
     isLocating,
     updateField,
+    releaseAdminImageUrl,
     updateCoord,
     updateAffiliate,
     handleAutoLocate,
@@ -67,6 +77,14 @@ export const AdminPoiModal = ({ isOpen, onClose, onSave, poi, cityName }: AdminP
   const dialogTitleId = useId();
   const validationDialogTitleId = useId();
   const confirmCloseDialogTitleId = useId();
+  const tabListId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const validationDialogRef = useRef<HTMLDivElement>(null);
+  const confirmCloseDialogRef = useRef<HTMLDivElement>(null);
+  const childDialogOpen = validationError !== null || showConfirmClose || showDeleteConfirm;
+  useDialogFocusTrap(isOpen && !childDialogOpen, dialogRef, isDeleting);
+  useDialogFocusTrap(validationError !== null, validationDialogRef, false);
+  useDialogFocusTrap(showConfirmClose, confirmCloseDialogRef, false);
 
   useEffect(() => {
     if (isOpen) {
@@ -129,6 +147,15 @@ export const AdminPoiModal = ({ isOpen, onClose, onSave, poi, cityName }: AdminP
     });
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
@@ -148,10 +175,12 @@ export const AdminPoiModal = ({ isOpen, onClose, onSave, poi, cityName }: AdminP
       {validationError && (
         <div className="absolute inset-0 z-floating-panel flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in">
           <div
+            ref={validationDialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby={validationDialogTitleId}
-            className="bg-slate-900 border border-red-500/50 p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl relative overflow-hidden animate-in zoom-in-95"
+            tabIndex={-1}
+            className="bg-slate-900 border border-red-500/50 p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl relative overflow-hidden animate-in zoom-in-95 outline-none"
           >
             <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center border-2 border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.3)] mx-auto mb-6">
               <AlertTriangle className="w-8 h-8 text-red-500 animate-pulse" />
@@ -174,10 +203,12 @@ export const AdminPoiModal = ({ isOpen, onClose, onSave, poi, cityName }: AdminP
       {showConfirmClose && (
         <div className="absolute inset-0 z-floating-panel flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
           <div
+            ref={confirmCloseDialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby={confirmCloseDialogTitleId}
-            className="bg-slate-900 border border-slate-700 p-6 rounded-xl shadow-2xl max-w-sm w-full text-center"
+            tabIndex={-1}
+            className="bg-slate-900 border border-slate-700 p-6 rounded-xl shadow-2xl max-w-sm w-full text-center outline-none"
           >
             <AlertCircle className="w-8 h-8 text-amber-500 mx-auto mb-2" />
             <h3 id={confirmCloseDialogTitleId} className="text-lg font-bold text-white mb-1">
@@ -213,39 +244,47 @@ export const AdminPoiModal = ({ isOpen, onClose, onSave, poi, cityName }: AdminP
       />
 
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={dialogTitleId}
-        className="relative bg-slate-900 w-full max-w-5xl h-full md:h-auto md:max-h-[85vh] rounded-2xl border border-slate-700 shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95"
+        tabIndex={-1}
+        className="relative bg-slate-900 w-full max-w-5xl h-full md:h-[85vh] max-h-full min-h-0 rounded-2xl border border-slate-700 shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 outline-none"
       >
-        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center px-4 sm:px-6 py-4 border-b border-slate-800 bg-[#0f172a]">
-          <h3
-            id={dialogTitleId}
-            className="text-xl sm:text-2xl font-bold text-white font-display min-w-0"
-          >
-            {poi ? 'Modifica POI' : 'Nuovo POI'}
-          </h3>
+        <div className="shrink-0 flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center px-4 sm:px-6 py-4 border-b border-slate-800 bg-[#0f172a]">
+          <div className="min-w-0">
+            <h3
+              id={dialogTitleId}
+              className="text-xl sm:text-2xl font-bold text-white font-display min-w-0"
+            >
+              {poi ? 'Modifica POI' : 'Nuovo POI'}
+            </h3>
+            {poi ? <p className="text-sm text-slate-400 truncate mt-0.5">{formData.name}</p> : null}
+          </div>
           <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3 shrink-0">
             <div className="flex flex-wrap bg-slate-950 p-1 rounded-lg border border-slate-800 max-w-full">
               <button
                 type="button"
+                aria-pressed={formData.status === 'published'}
                 onClick={() => updateField('status', 'published')}
                 disabled={isMissingAsset}
-                className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-all ${formData.status === 'published' ? 'bg-emerald-600 text-white shadow' : isMissingAsset ? 'text-slate-600 cursor-not-allowed' : 'text-slate-500 hover:text-white'}`}
+                className={`min-h-11 px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-all ${formData.status === 'published' ? 'bg-emerald-600 text-white shadow' : isMissingAsset ? 'text-slate-600 cursor-not-allowed' : 'text-slate-500 hover:text-white'}`}
               >
                 Pubblico
               </button>
               <button
                 type="button"
+                aria-pressed={formData.status === 'draft'}
                 onClick={() => updateField('status', 'draft')}
-                className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-all ${formData.status === 'draft' ? 'bg-amber-600 text-white shadow' : 'text-slate-500 hover:text-white'}`}
+                className={`min-h-11 px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-all ${formData.status === 'draft' ? 'bg-amber-600 text-white shadow' : 'text-slate-500 hover:text-white'}`}
               >
                 Bozza
               </button>
               <button
                 type="button"
+                aria-pressed={formData.status === 'needs_check'}
                 onClick={() => updateField('status', 'needs_check')}
-                className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-all ${formData.status === 'needs_check' ? 'bg-red-600 text-white shadow' : 'text-slate-500 hover:text-white'}`}
+                className={`min-h-11 px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-all ${formData.status === 'needs_check' ? 'bg-red-600 text-white shadow' : 'text-slate-500 hover:text-white'}`}
               >
                 Check
               </button>
@@ -255,8 +294,9 @@ export const AdminPoiModal = ({ isOpen, onClose, onSave, poi, cityName }: AdminP
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)}
-                className="p-2 bg-slate-800 hover:bg-red-900/30 text-slate-400 hover:text-red-500 rounded-lg transition-colors border border-slate-700 hover:border-red-500/30"
+                className="inline-flex min-h-11 min-w-11 items-center justify-center bg-slate-800 hover:bg-red-900/30 text-slate-400 hover:text-red-500 rounded-lg transition-colors border border-slate-700 hover:border-red-500/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
                 title="Elimina POI"
+                aria-label="Elimina POI"
               >
                 <Trash2 className="w-5 h-5" />
               </button>
@@ -266,22 +306,52 @@ export const AdminPoiModal = ({ isOpen, onClose, onSave, poi, cityName }: AdminP
           </div>
         </div>
 
-        <div className="px-6 py-3 border-b border-slate-800 bg-slate-900 overflow-x-auto">
-          <div className="flex gap-2">
-            {tabs.map((tab) => (
-              <button
-                type="button"
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 rounded-lg text-xs font-bold uppercase flex items-center gap-2 transition-all ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'}`}
-              >
-                <tab.icon className="w-4 h-4" /> {tab.label}
-              </button>
-            ))}
+        <div className="shrink-0 px-4 sm:px-6 py-3 border-b border-slate-800 bg-slate-900 overflow-x-auto">
+          <div
+            role="tablist"
+            aria-label="Sezioni POI"
+            className="flex gap-2"
+            onKeyDown={(event) => {
+              if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+              event.preventDefault();
+              const index = tabs.findIndex((tab) => tab.id === activeTab);
+              const nextIndex =
+                event.key === 'ArrowRight'
+                  ? (index + 1) % tabs.length
+                  : (index - 1 + tabs.length) % tabs.length;
+              const nextTab = tabs[nextIndex];
+              if (!nextTab) return;
+              setActiveTab(nextTab.id);
+              document.getElementById(`${tabListId}-${nextTab.id}`)?.focus();
+            }}
+          >
+            {tabs.map((tab) => {
+              const selected = activeTab === tab.id;
+              return (
+                <button
+                  type="button"
+                  key={tab.id}
+                  id={`${tabListId}-${tab.id}`}
+                  role="tab"
+                  aria-selected={selected}
+                  aria-controls={`${tabListId}-panel`}
+                  tabIndex={selected ? 0 : -1}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`inline-flex min-h-11 items-center gap-2 rounded-lg px-4 text-xs font-bold uppercase transition-all ${selected ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'}`}
+                >
+                  <tab.icon className="w-4 h-4" aria-hidden /> {tab.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-[#020617]">
+        <div
+          id={`${tabListId}-panel`}
+          role="tabpanel"
+          aria-labelledby={`${tabListId}-${activeTab}`}
+          className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden p-4 sm:p-6 custom-scrollbar bg-[#020617]"
+        >
           {isMissingAsset && (
             <div className="mb-6 bg-red-900/20 border-2 border-red-500 rounded-xl p-4 flex items-start gap-4 animate-pulse">
               <div className="p-2 bg-red-500 rounded-full text-white shrink-0">
@@ -302,7 +372,9 @@ export const AdminPoiModal = ({ isOpen, onClose, onSave, poi, cityName }: AdminP
             <PoiMediaTab
               formData={formData}
               cityName={cityName}
+              canHardDeletePhotos={canHardDeletePhotos}
               updateField={updateField}
+              releaseAdminImageUrl={releaseAdminImageUrl}
               setIsImageValid={setIsImageValid}
             />
           )}
@@ -331,7 +403,7 @@ export const AdminPoiModal = ({ isOpen, onClose, onSave, poi, cityName }: AdminP
           )}
         </div>
 
-        <div className="p-4 border-t border-slate-800 bg-[#0f172a] flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="shrink-0 p-4 border-t border-slate-800 bg-[#0f172a] flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex gap-6 text-[10px] text-slate-500 font-mono self-start md:self-center">
             <div className="flex items-center gap-2" title="Data Creazione">
               <Plus className="w-3 h-3 text-emerald-500" />{' '}

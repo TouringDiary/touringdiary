@@ -3,7 +3,8 @@ import type {
   ImageAssetStatusDb,
   MediaOriginTypeDb,
 } from '@/constants/governance';
-import { isPublicUsableImageAssetStatus, parseImageAssetStatusDb } from '@/constants/governance';
+import { isPubliclyVisibleAssignmentStatus, parseImageAssetStatusDb } from '@/constants/governance';
+import { isAssetEligibleForPublicUse } from '@/domain/media/imagePublicationPolicy';
 import type { PoiCategory } from '@/types/models/City';
 import {
   type ResolvePoiDisplayImageUrlParams,
@@ -29,6 +30,9 @@ export type PoiImageAssignmentCandidate = {
   assignmentStatus: AssignmentStatusDb;
   originType: MediaOriginTypeDb;
   assetStatus: ImageAssetStatusDb;
+  /** true solo se la validazione Wikimedia è concessa. Ignorato se l'origine non è wikimedia. */
+  wikimediaValidated: boolean | null;
+  adminBlocked: boolean;
   publicUrl: string | null;
   createdAt?: string | null;
   stableId?: string | null;
@@ -61,11 +65,18 @@ function tierForOrigin(
 
 function isUsableCandidate(candidate: PoiImageAssignmentCandidate): boolean {
   if (!candidate.isCurrent) return false;
-  if (candidate.assignmentStatus !== 'active') return false;
+  if (!isPubliclyVisibleAssignmentStatus(candidate.assignmentStatus)) return false;
   const url = candidate.publicUrl?.trim() ?? '';
   if (!url) return false;
   try {
-    if (!isPublicUsableImageAssetStatus(parseImageAssetStatusDb(candidate.assetStatus))) {
+    if (
+      !isAssetEligibleForPublicUse({
+        originType: candidate.originType,
+        assetStatus: parseImageAssetStatusDb(candidate.assetStatus),
+        wikimediaValidated: candidate.wikimediaValidated,
+        adminBlocked: candidate.adminBlocked,
+      })
+    ) {
       return false;
     }
   } catch {

@@ -600,6 +600,7 @@ export type Database = {
           coords_lat: number | null
           coords_lng: number | null
           created_at: string | null
+          deleted_at: string | null
           description: string | null
           events: Json | null
           famous_people: Json | null
@@ -644,6 +645,7 @@ export type Database = {
           coords_lat?: number | null
           coords_lng?: number | null
           created_at?: string | null
+          deleted_at?: string | null
           description?: string | null
           events?: Json | null
           famous_people?: Json | null
@@ -688,6 +690,7 @@ export type Database = {
           coords_lat?: number | null
           coords_lng?: number | null
           created_at?: string | null
+          deleted_at?: string | null
           description?: string | null
           events?: Json | null
           famous_people?: Json | null
@@ -1573,7 +1576,7 @@ export type Database = {
         Row: {
           admin_notes: string | null
           assignment_id: string | null
-          city_id: string
+          city_id: string | null
           created_at: string
           entity_id: string
           entity_type: string
@@ -1606,7 +1609,7 @@ export type Database = {
         Insert: {
           admin_notes?: string | null
           assignment_id?: string | null
-          city_id: string
+          city_id?: string | null
           created_at?: string
           entity_id: string
           entity_type: string
@@ -1639,7 +1642,7 @@ export type Database = {
         Update: {
           admin_notes?: string | null
           assignment_id?: string | null
-          city_id?: string
+          city_id?: string | null
           created_at?: string
           entity_id?: string
           entity_type?: string
@@ -2794,6 +2797,7 @@ export type Database = {
       }
       media_assets: {
         Row: {
+          admin_blocked: boolean
           archived_at: string | null
           asset_status: Database["public"]["Enums"]["image_asset_status"]
           attribution_text: string | null
@@ -2816,8 +2820,10 @@ export type Database = {
           storage_bucket: string
           storage_path: string
           updated_at: string
+          wikimedia_validated: boolean | null
         }
         Insert: {
+          admin_blocked?: boolean
           archived_at?: string | null
           asset_status?: Database["public"]["Enums"]["image_asset_status"]
           attribution_text?: string | null
@@ -2840,8 +2846,10 @@ export type Database = {
           storage_bucket: string
           storage_path: string
           updated_at?: string
+          wikimedia_validated?: boolean | null
         }
         Update: {
+          admin_blocked?: boolean
           archived_at?: string | null
           asset_status?: Database["public"]["Enums"]["image_asset_status"]
           attribution_text?: string | null
@@ -2864,6 +2872,34 @@ export type Database = {
           storage_bucket?: string
           storage_path?: string
           updated_at?: string
+          wikimedia_validated?: boolean | null
+        }
+        Relationships: []
+      }
+      media_hard_delete_objects: {
+        Row: {
+          bucket_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          object_name: string
+          user_id: string
+        }
+        Insert: {
+          bucket_id: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          object_name: string
+          user_id: string
+        }
+        Update: {
+          bucket_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          object_name?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -6747,6 +6783,10 @@ export type Database = {
         Args: { p_amount: number; p_user_id: string }
         Returns: undefined
       }
+      adjust_poi_vote: {
+        Args: { p_delta: number; p_poi_id: string }
+        Returns: number
+      }
       append_entity_image_history: {
         Args: {
           p_admin_override?: boolean
@@ -6833,6 +6873,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      assert_td_admin_all: { Args: never; Returns: undefined }
       block_famous_person_photo_report_and_clear: {
         Args: {
           p_admin_notes?: string
@@ -6898,6 +6939,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      canonical_image_verification_step_codes: {
+        Args: never
+        Returns: string[]
       }
       capture_report_evidence: {
         Args: {
@@ -6984,6 +7029,10 @@ export type Database = {
       current_user_is_shared_resource_owner: {
         Args: { p_shared_resource_id: string }
         Returns: boolean
+      }
+      delete_city_admin: {
+        Args: { p_city_id: string; p_options?: Json }
+        Returns: undefined
       }
       delete_city_patron_gallery_photo_with_assignment: {
         Args: { p_gallery_photo_id: string }
@@ -7267,6 +7316,19 @@ export type Database = {
         Args: { p_city_id: string }
         Returns: number
       }
+      hard_delete_media_photo: {
+        Args: { p_assignment_id?: string; p_media_asset_id: string }
+        Returns: Json
+      }
+      image_mgmt_phase1_validate_dual_write_request: {
+        Args: {
+          p_assignment_role: string
+          p_city_id: string
+          p_entity_type: string
+          p_origin_type: string
+        }
+        Returns: undefined
+      }
       increment_community_post_likes: {
         Args: { post_id: string }
         Returns: undefined
@@ -7300,6 +7362,19 @@ export type Database = {
         }
         Returns: string
       }
+      int09_parse_city_delete_options: {
+        Args: { p_options: Json }
+        Returns: {
+          keep_people: boolean
+          keep_pois: boolean
+          keep_user_photos: boolean
+        }[]
+      }
+      int09_revoke_photo_submission_assignments_for_city: {
+        Args: { p_city_id: string }
+        Returns: undefined
+      }
+      is_admin_all: { Args: { p_uid: string }; Returns: boolean }
       is_canonical_image_verification_step_code: {
         Args: { p_code: string }
         Returns: boolean
@@ -7314,6 +7389,10 @@ export type Database = {
       }
       is_service_role: { Args: never; Returns: boolean }
       is_td_admin: { Args: { p_uid: string }; Returns: boolean }
+      latest_complete_image_verification_run: {
+        Args: { p_media_asset_id: string }
+        Returns: string
+      }
       list_ai_verify_queue: {
         Args: {
           p_city_id?: string
@@ -7373,6 +7452,10 @@ export type Database = {
           p_request_id?: string
         }
         Returns: number
+      }
+      media_hard_delete_object_authorized: {
+        Args: { p_bucket: string; p_name: string }
+        Returns: boolean
       }
       media_origin_is_merge_governed: {
         Args: { p_origin: string }
@@ -7531,9 +7614,17 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      release_media_hard_delete_objects: {
+        Args: { p_objects: Json }
+        Returns: undefined
+      }
       release_shared_resource_edit_lock: {
         Args: { p_shared_resource_id: string }
         Returns: boolean
+      }
+      relink_orphaned_city_content: {
+        Args: { p_city_id: string }
+        Returns: undefined
       }
       relink_orphaned_sponsors_to_city: {
         Args: { p_city_id: string; p_city_name: string }
@@ -7587,13 +7678,9 @@ export type Database = {
         }
         Returns: string
       }
-      set_poi_wikimedia_public_enabled: {
-        Args: {
-          p_poi_id: string
-          p_city_id: string
-          p_enabled: boolean
-        }
-        Returns: undefined
+      save_wikimedia_validation_notes: {
+        Args: { p_media_asset_id: string; p_notes: Json }
+        Returns: string
       }
       search_pois: {
         Args: {
@@ -7641,6 +7728,7 @@ export type Database = {
           visit_duration: string | null
           votes: number | null
           website: string | null
+          wikimedia_public_enabled: boolean
         }[]
         SetofOptions: {
           from: "*"
@@ -7653,19 +7741,29 @@ export type Database = {
         Args: { p_person_id: string; p_status: string }
         Returns: undefined
       }
+      set_media_asset_admin_block: {
+        Args: {
+          p_admin_rationale: string
+          p_blocked: boolean
+          p_media_asset_id: string
+        }
+        Returns: boolean
+      }
+      set_poi_wikimedia_public_enabled: {
+        Args: { p_city_id: string; p_enabled: boolean; p_poi_id: string }
+        Returns: undefined
+      }
+      set_wikimedia_validation: {
+        Args: {
+          p_admin_rationale: string
+          p_media_asset_id: string
+          p_validated: boolean
+        }
+        Returns: boolean
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       slugify: { Args: { input: string }; Returns: string }
-      submit_community_poi: {
-        Args: {
-          p_category: string
-          p_city_id: string
-          p_city_name: string
-          p_details?: Json
-          p_poi_name: string
-        }
-        Returns: string
-      }
       submit_famous_person_photo_suggestion: {
         Args: {
           p_image_url: string

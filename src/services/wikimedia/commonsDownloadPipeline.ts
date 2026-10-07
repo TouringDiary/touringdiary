@@ -1,5 +1,6 @@
 import type { AssignmentEntityType } from '@/constants/governance';
 import { IMAGE_VERIFICATION_STEP_DEFINITIONS } from '@/constants/imageVerificationSteps';
+import { loadLatestCanonicalVerificationRun } from '@/services/media/canonicalVerificationRun';
 import { upsertEntityImageAssignmentFromSource } from '@/services/media/entityImageAssignmentWriteService';
 import {
   type MediaAssetProvenancePatch,
@@ -9,6 +10,11 @@ import { mf3MediaAssetsTable, mf3Rpc } from '@/services/media/mf3DbClient';
 import { supabase } from '@/services/supabaseClient';
 import { parseCommonsLicenseMetadata } from './commonsLicenseParser';
 import { fetchCommonsExtMetadata, type WikidataP18Proposal } from './wikidataLookupService';
+import {
+  classifyWikimediaStorageContent,
+  shouldAssignWikimediaAsset,
+} from './wikimediaStorageCollision';
+import { buildWikimediaStorageObjectPath } from './wikimediaStorageObjectPath';
 
 const PUBLIC_BUCKET = 'public-media';
 const WIKIMEDIA_VERIFIED_FOLDER = 'verified/wikimedia';
@@ -38,6 +44,29 @@ export type CommonsDownloadPipelineInput = {
    * POI/City: policy pipeline impone sempre gallery.
    */
   assignmentRole?: 'primary' | 'gallery';
+  /**
+   * Import manuale Admin: se il path esiste, non caricare e restituire la decisione.
+   * I chiamanti automatici omettono il flag e, se i byte coincidono, proseguono senza un secondo POST.
+   */
+  interactiveStorageDecision?: boolean;
+  /** Scelta Admin dopo una decisione di collisione. Assente al primo tentativo. */
+  storageResolution?: 'reuse_existing' | 'import_new';
+};
+
+export type WikimediaStorageObjectFacts = {
+  storagePath: string;
+  previewUrl: string;
+  fileName: string;
+  byteLength: number;
+  mime: string;
+  contentHash: string;
+  assetId: string | null;
+  assetStatus: string | null;
+  originType: string | null;
+  licenseCode: string | null;
+  sourceUrl: string | null;
+  verificationOutcome: string | null;
+  verificationSummary: string | null;
 };
 
 export type CommonsDownloadPipelineResult =
@@ -52,7 +81,13 @@ export type CommonsDownloadPipelineResult =
       queuedForAdminVerify: boolean;
       message: string;
     }
-  | { ok: false; stage: string; message: string };
+  | { ok: false; stage: string; message: string }
+  | {
+      ok: 'storage_decision';
+      decision: 'identical' | 'different';
+      existing: WikimediaStorageObjectFacts;
+      incoming: WikimediaStorageObjectFacts;
+    };
 
 type DownloadEvidence = {
   blob: Blob;
@@ -239,19 +274,6 @@ async function downloadCommonsImageInner(url: string): Promise<DownloadEvidence 
   };
 }
 
-function extensionForMime(mime: string): string {
-  switch (mime) {
-    case 'image/png':
-      return 'png';
-    case 'image/webp':
-      return 'webp';
-    case 'image/gif':
-      return 'gif';
-    default:
-      return 'jpg';
-  }
-}
-
 async function removeStoragePathQuiet(path: string): Promise<void> {
   const trimmed = path.trim();
   if (!trimmed) {
@@ -263,7 +285,11 @@ async function removeStoragePathQuiet(path: string): Promise<void> {
   }
 }
 
-type MaterializedMediaAsset = { id: string; createdThisRun: boolean };
+type MaterializedMediaAsset = {
+  id: string;
+  createdThisRun: boolean;
+  wikimediaValidated: boolean;
+};
 
 async function removeMediaAssetQuiet(mediaAssetId: string): Promise<void> {
   const { data, error } = await mf3MediaAssetsTable().delete().eq('id', mediaAssetId).select('id');
@@ -285,6 +311,371 @@ function isStorageObjectAlreadyExistsError(error: {
     return true;
   }
   return String(error.statusCode ?? '') === '409';
+}
+
+type StoredWikimediaObject =
+  | { status: 'absent' }
+  | { status: 'present'; byteLength: number; mime: string; contentHash: string }
+  | { status: 'error'; message: string };
+
+type StorageTargetResolution =
+  | { kind: 'ready'; storagePath: string; createdThisRun: boolean }
+  | { kind: 'stop'; result: CommonsDownloadPipelineResult };
+
+function storageFileName(storagePath: string): string {
+  const slash = storagePath.lastIndexOf('/');
+  return slash >= 0 ? storagePath.slice(slash + 1) : storagePath;
+}
+
+async function readStoredWikimediaObject(storagePath: string): Promise<StoredWikimediaObject> {
+  const fileName = storageFileName(storagePath);
+  const folder = storagePath.slice(0, Math.max(0, storagePath.length - fileName.length - 1));
+  const { data, error } = await supabase.storage.from(PUBLIC_BUCKET).list(folder, {
+    limit: 100,
+    search: fileName,
+  });
+  if (error) return { status: 'error', message: error.message };
+  const listed = (data ?? []) as { name?: string; metadata?: { mimetype?: string } | null }[];
+  if (!listed.some((item) => item.name === fileName)) return { status: 'absent' };
+
+  const { data: blob, error: downloadError } = await supabase.storage
+    .from(PUBLIC_BUCKET)
+    .download(storagePath);
+  if (downloadError || !blob) {
+    return {
+      status: 'error',
+      message: downloadError?.message ?? 'Lettura oggetto Storage fallita.',
+    };
+  }
+  const buffer = await blob.arrayBuffer();
+  const listedMime = listed.find((item) => item.name === fileName)?.metadata?.mimetype;
+  return {
+    status: 'present',
+    byteLength: buffer.byteLength,
+    mime: blob.type || listedMime || 'application/octet-stream',
+    contentHash: await sha256Hex(buffer),
+  };
+}
+
+async function loadStoredAssetFacts(
+  storagePath: string,
+  stored: Extract<StoredWikimediaObject, { status: 'present' }>,
+): Promise<WikimediaStorageObjectFacts> {
+  const { data: publicData } = supabase.storage.from(PUBLIC_BUCKET).getPublicUrl(storagePath);
+  const { data: asset, error: assetError } = await mf3MediaAssetsTable()
+    .select('id, asset_status, origin_type, license_code, source_url')
+    .eq('storage_bucket', PUBLIC_BUCKET)
+    .eq('storage_path', storagePath)
+    .maybeSingle();
+  if (assetError) throw new Error(assetError.message);
+  const row = asset as {
+    id?: string;
+    asset_status?: string;
+    origin_type?: string;
+    license_code?: string | null;
+    source_url?: string | null;
+  } | null;
+
+  let verificationOutcome: string | null = null;
+  let verificationSummary: string | null = null;
+  if (row?.id) {
+    const run = await loadLatestCanonicalVerificationRun(row.id);
+    verificationOutcome = run?.overallOutcome ?? null;
+    verificationSummary = run?.aiSummary ?? null;
+  }
+
+  return {
+    storagePath,
+    previewUrl: publicData.publicUrl,
+    fileName: storageFileName(storagePath),
+    byteLength: stored.byteLength,
+    mime: stored.mime,
+    contentHash: stored.contentHash,
+    assetId: row?.id ?? null,
+    assetStatus: row?.asset_status ?? null,
+    originType: row?.origin_type ?? null,
+    licenseCode: row?.license_code ?? null,
+    sourceUrl: row?.source_url ?? null,
+    verificationOutcome,
+    verificationSummary,
+  };
+}
+
+function incomingStorageFacts(input: {
+  storagePath: string;
+  previewUrl: string;
+  fileName: string;
+  byteLength: number;
+  mime: string;
+  contentHash: string;
+  licenseCode: string | null;
+  verificationOutcome: string | null;
+  verificationSummary: string | null;
+}): WikimediaStorageObjectFacts {
+  return {
+    storagePath: input.storagePath,
+    previewUrl: input.previewUrl,
+    fileName: input.fileName,
+    byteLength: input.byteLength,
+    mime: input.mime,
+    contentHash: input.contentHash,
+    assetId: null,
+    assetStatus: null,
+    originType: 'wikimedia',
+    licenseCode: input.licenseCode,
+    sourceUrl: null,
+    verificationOutcome: input.verificationOutcome,
+    verificationSummary: input.verificationSummary,
+  };
+}
+
+async function uploadNewWikimediaObject(
+  storagePath: string,
+  blob: Blob,
+  mime: string,
+): Promise<{ created: boolean } | { error: string }> {
+  const { error } = await supabase.storage.from(PUBLIC_BUCKET).upload(storagePath, blob, {
+    cacheControl: '3600',
+    upsert: false,
+    contentType: mime,
+  });
+  if (!error) return { created: true };
+  if (isStorageObjectAlreadyExistsError(error)) return { created: false };
+  return { error: error.message };
+}
+
+async function storageDecisionResult(input: {
+  storagePath: string;
+  stored: Extract<StoredWikimediaObject, { status: 'present' }>;
+  relation: 'identical' | 'different';
+  incoming: WikimediaStorageObjectFacts;
+}): Promise<StorageTargetResolution> {
+  try {
+    const existing = await loadStoredAssetFacts(input.storagePath, input.stored);
+    return {
+      kind: 'stop',
+      result: {
+        ok: 'storage_decision',
+        decision: input.relation,
+        existing,
+        incoming: input.incoming,
+      },
+    };
+  } catch (err) {
+    return {
+      kind: 'stop',
+      result: {
+        ok: false,
+        stage: 'storage_lookup',
+        message: err instanceof Error ? err.message : 'Lettura asset esistente fallita.',
+      },
+    };
+  }
+}
+
+function collisionStop(): StorageTargetResolution {
+  return {
+    kind: 'stop',
+    result: {
+      ok: false,
+      stage: 'storage_collision',
+      message:
+        'Il path Storage esiste già con un contenuto diverso. Nessuna sovrascrittura eseguita.',
+    },
+  };
+}
+
+async function placeWikimediaStorageObject(input: {
+  canonicalPath: string;
+  folder: string;
+  qid: string;
+  contentHash: string;
+  commonsFileTitle: string;
+  mime: string;
+  blob: Blob;
+  byteLength: number;
+  previewUrl: string;
+  licenseCode: string | null;
+  verificationOutcome: string | null;
+  verificationSummary: string | null;
+  interactive: boolean;
+  resolution?: 'reuse_existing' | 'import_new';
+}): Promise<StorageTargetResolution> {
+  const incoming = incomingStorageFacts({
+    storagePath: input.canonicalPath,
+    previewUrl: input.previewUrl,
+    fileName: input.commonsFileTitle.replace(/^File:/i, ''),
+    byteLength: input.byteLength,
+    mime: input.mime,
+    contentHash: input.contentHash,
+    licenseCode: input.licenseCode,
+    verificationOutcome: input.verificationOutcome,
+    verificationSummary: input.verificationSummary,
+  });
+
+  const occupy = async (path: string): Promise<StorageTargetResolution> => {
+    const uploaded = await uploadNewWikimediaObject(path, input.blob, input.mime);
+    if ('error' in uploaded) {
+      return {
+        kind: 'stop',
+        result: { ok: false, stage: 'storage_upload', message: uploaded.error },
+      };
+    }
+    if (uploaded.created) return { kind: 'ready', storagePath: path, createdThisRun: true };
+
+    const raced = await readStoredWikimediaObject(path);
+    if (raced.status === 'error') {
+      return {
+        kind: 'stop',
+        result: { ok: false, stage: 'storage_lookup', message: raced.message },
+      };
+    }
+    if (raced.status !== 'present') {
+      return {
+        kind: 'stop',
+        result: {
+          ok: false,
+          stage: 'storage_upload',
+          message: 'Upload rifiutato e oggetto non trovato dopo il conflitto.',
+        },
+      };
+    }
+    const relation = classifyWikimediaStorageContent(input.contentHash, raced.contentHash);
+    if (relation === 'different') {
+      return input.interactive
+        ? storageDecisionResult({
+            storagePath: path,
+            stored: raced,
+            relation,
+            incoming,
+          })
+        : collisionStop();
+    }
+    if (input.interactive && !input.resolution) {
+      return storageDecisionResult({
+        storagePath: path,
+        stored: raced,
+        relation: 'identical',
+        incoming,
+      });
+    }
+    return { kind: 'ready', storagePath: path, createdThisRun: false };
+  };
+
+  const stored = await readStoredWikimediaObject(input.canonicalPath);
+  if (stored.status === 'error') {
+    return {
+      kind: 'stop',
+      result: { ok: false, stage: 'storage_lookup', message: stored.message },
+    };
+  }
+  const relation = classifyWikimediaStorageContent(
+    input.contentHash,
+    stored.status === 'present' ? stored.contentHash : null,
+  );
+
+  if (input.resolution === 'reuse_existing') {
+    if (stored.status !== 'present') {
+      return {
+        kind: 'stop',
+        result: {
+          ok: false,
+          stage: 'storage_lookup',
+          message: "L'oggetto già presente non è più in Storage. Nessuna modifica eseguita.",
+        },
+      };
+    }
+    if (relation === 'different') {
+      try {
+        const existing = await loadStoredAssetFacts(input.canonicalPath, stored);
+        const { data: publicData } = supabase.storage
+          .from(PUBLIC_BUCKET)
+          .getPublicUrl(input.canonicalPath);
+        return {
+          kind: 'stop',
+          result: {
+            ok: true,
+            mediaAssetId: existing.assetId ?? '',
+            assignmentId: null,
+            publicUrl: publicData.publicUrl,
+            storagePath: input.canonicalPath,
+            autoVerified: false,
+            verificationRunId: null,
+            queuedForAdminVerify: false,
+            message:
+              'Asset già presente conservato. I byte e la provenienza non sono stati modificati.',
+          },
+        };
+      } catch (err) {
+        return {
+          kind: 'stop',
+          result: {
+            ok: false,
+            stage: 'storage_lookup',
+            message: err instanceof Error ? err.message : 'Lettura asset esistente fallita.',
+          },
+        };
+      }
+    }
+    return { kind: 'ready', storagePath: input.canonicalPath, createdThisRun: false };
+  }
+
+  if (
+    relation === 'different' &&
+    stored.status === 'present' &&
+    input.resolution === 'import_new'
+  ) {
+    const alternatePath = buildWikimediaStorageObjectPath({
+      folder: input.folder,
+      qid: input.qid,
+      contentHash: input.contentHash,
+      commonsFileTitle: input.commonsFileTitle,
+      mime: input.mime,
+      contentHashLength: 64,
+    });
+    const alternate = await readStoredWikimediaObject(alternatePath);
+    if (alternate.status === 'error') {
+      return {
+        kind: 'stop',
+        result: { ok: false, stage: 'storage_lookup', message: alternate.message },
+      };
+    }
+    if (alternate.status === 'present') {
+      const alternateRelation = classifyWikimediaStorageContent(
+        input.contentHash,
+        alternate.contentHash,
+      );
+      if (alternateRelation === 'different') return collisionStop();
+      return { kind: 'ready', storagePath: alternatePath, createdThisRun: false };
+    }
+    return occupy(alternatePath);
+  }
+
+  if (relation === 'identical' && stored.status === 'present') {
+    if (input.interactive && input.resolution !== 'import_new') {
+      return storageDecisionResult({
+        storagePath: input.canonicalPath,
+        stored,
+        relation: 'identical',
+        incoming,
+      });
+    }
+    return { kind: 'ready', storagePath: input.canonicalPath, createdThisRun: false };
+  }
+
+  if (relation === 'different' && stored.status === 'present') {
+    if (input.interactive) {
+      return storageDecisionResult({
+        storagePath: input.canonicalPath,
+        stored,
+        relation: 'different',
+        incoming,
+      });
+    }
+    return collisionStop();
+  }
+
+  return occupy(input.canonicalPath);
 }
 
 /** Errori di compensazione dopo fallimento operazione primaria (stringhe già contestualizzate). */
@@ -343,14 +734,18 @@ async function materializeMediaAssetForPath(
   assetStatus: 'active' | 'suspended',
 ): Promise<MaterializedMediaAsset> {
   const { data: existing, error: existingError } = await mf3MediaAssetsTable()
-    .select('id')
+    .select('id, wikimedia_validated')
     .eq('storage_bucket', PUBLIC_BUCKET)
     .eq('storage_path', storagePath)
     .maybeSingle();
   if (existingError) throw new Error(existingError.message);
-  const existingRecord = existing as { id?: string } | null;
+  const existingRecord = existing as { id?: string; wikimedia_validated?: boolean | null } | null;
   if (existingRecord?.id) {
-    return { id: existingRecord.id, createdThisRun: false };
+    return {
+      id: existingRecord.id,
+      createdThisRun: false,
+      wikimediaValidated: existingRecord.wikimedia_validated === true,
+    };
   }
 
   const insertPayload = {
@@ -360,24 +755,29 @@ async function materializeMediaAssetForPath(
     generated_by_ai: false,
     is_placeholder: false,
     asset_status: assetStatus,
+    wikimedia_validated: false,
   } as const;
   const { data: inserted, error: insertError } = await mf3MediaAssetsTable()
     .insert(insertPayload)
-    .select('id')
+    .select('id, wikimedia_validated')
     .single();
 
   if (insertError) {
     const code = (insertError as { code?: string }).code;
     if (code === '23505') {
       const { data: raced, error: raceError } = await mf3MediaAssetsTable()
-        .select('id')
+        .select('id, wikimedia_validated')
         .eq('storage_bucket', PUBLIC_BUCKET)
         .eq('storage_path', storagePath)
         .maybeSingle();
       if (raceError) throw new Error(raceError.message);
-      const racedRecord = raced as { id?: string } | null;
+      const racedRecord = raced as { id?: string; wikimedia_validated?: boolean | null } | null;
       if (racedRecord?.id) {
-        return { id: racedRecord.id, createdThisRun: false };
+        return {
+          id: racedRecord.id,
+          createdThisRun: false,
+          wikimediaValidated: racedRecord.wikimedia_validated === true,
+        };
       }
     }
     throw new Error(insertError.message);
@@ -386,12 +786,75 @@ async function materializeMediaAssetForPath(
   if (!insertedRecord?.id) {
     throw new Error('Inserimento media_assets Wikimedia senza id.');
   }
-  return { id: insertedRecord.id, createdThisRun: true };
+  return { id: insertedRecord.id, createdThisRun: true, wikimediaValidated: false };
 }
 
 /**
  * Pipeline Wikidata/Commons post-conferma Admin: metadata → licenza → download → Storage → media_assets.
  */
+export function asCommonsDownloadImported(
+  result: CommonsDownloadPipelineResult,
+):
+  | Extract<CommonsDownloadPipelineResult, { ok: true }>
+  | { failed: { stage: string; message: string } } {
+  if (result.ok === true) return result;
+  if (result.ok === false) return { failed: { stage: result.stage, message: result.message } };
+  return {
+    failed: {
+      stage: 'storage_decision',
+      message:
+        result.decision === 'identical'
+          ? 'Questa immagine è già presente in archivio.'
+          : 'Il path Storage esiste già con un contenuto diverso. Nessuna sovrascrittura eseguita.',
+    },
+  };
+}
+
+function wikimediaImportMessage(input: {
+  adminReuse: boolean;
+  assigned: boolean;
+  autoPath: boolean;
+}): string {
+  if (input.autoPath) {
+    if (input.assigned) {
+      return 'Foto importata e associata sul percorso automatico. Resta DA VALIDARE: l’import non convalida il file e non accende il toggle pubblico.';
+    }
+    return 'Import sul percorso automatico. Resta DA VALIDARE: l’import non convalida il file e non accende il toggle pubblico.';
+  }
+  if (input.adminReuse && input.assigned) {
+    return 'Asset già presente collegato. Resta DA VALIDARE: i controlli automatici non convalidano la foto.';
+  }
+  if (input.assigned) {
+    return 'Foto importata e associata. Resta DA VALIDARE finché un Admin non la valida.';
+  }
+  return 'Foto importata. Resta DA VALIDARE e non è pubblicabile finché un Admin non la valida.';
+}
+
+async function assignWikimediaAssetToEntity(input: {
+  entity: CommonsDownloadEntityTarget;
+  assignmentRole?: 'primary' | 'gallery';
+  publicUrl: string;
+  storagePath: string;
+}): Promise<string> {
+  const entityTypeForAssignment: AssignmentEntityType = input.entity.entityType;
+  const assignmentRole: 'primary' | 'gallery' =
+    entityTypeForAssignment === 'poi' || entityTypeForAssignment === 'city'
+      ? 'gallery'
+      : (input.assignmentRole ?? 'primary');
+  return upsertEntityImageAssignmentFromSource({
+    entityType: entityTypeForAssignment,
+    entityId: input.entity.entityId,
+    cityId: input.entity.cityId,
+    assignmentRole,
+    source: {
+      imageUrl: input.publicUrl,
+      storageBucket: PUBLIC_BUCKET,
+      storagePath: input.storagePath,
+      originType: 'wikimedia',
+    },
+  });
+}
+
 export async function runCommonsDownloadPipeline(
   input: CommonsDownloadPipelineInput,
 ): Promise<CommonsDownloadPipelineResult> {
@@ -467,39 +930,69 @@ export async function runCommonsDownloadPipeline(
 
   const hashBuffer = await downloaded.blob.arrayBuffer();
   const contentHash = await sha256Hex(hashBuffer);
-  const ext = extensionForMime(downloaded.mime);
-  const safeQid = proposal.qid.replace(/[^a-zA-Z0-9]/g, '');
-  const safeFile = proposal.commonsFileTitle
-    .replace(/^File:/i, '')
-    .replace(/[^a-zA-Z0-9._-]+/g, '_')
-    .slice(0, 80);
 
   const autoPath = license.isCcBy40AutoPathEligible && downloaded.formatConsistent;
   const storageFolder = autoPath ? WIKIMEDIA_VERIFIED_FOLDER : WIKIMEDIA_QUARANTINE_FOLDER;
-  const storagePath = `${storageFolder}/${safeQid}/${contentHash.slice(0, 32)}_${safeFile}.${ext}`;
+  let storagePath = buildWikimediaStorageObjectPath({
+    folder: storageFolder,
+    qid: proposal.qid,
+    contentHash,
+    commonsFileTitle: proposal.commonsFileTitle,
+    mime: downloaded.mime,
+  });
 
-  let storageCreatedByThisRun = false;
-  const { error: uploadError } = await supabase.storage
-    .from(PUBLIC_BUCKET)
-    .upload(storagePath, downloaded.blob, {
-      cacheControl: '3600',
-      upsert: false,
-      contentType: downloaded.mime,
-    });
-
-  if (uploadError) {
-    if (isStorageObjectAlreadyExistsError(uploadError)) {
-      storageCreatedByThisRun = false;
-    } else {
-      return {
-        ok: false,
-        stage: 'storage_upload',
-        message: uploadError.message,
-      };
+  const placed = await placeWikimediaStorageObject({
+    canonicalPath: storagePath,
+    folder: storageFolder,
+    qid: proposal.qid,
+    contentHash,
+    commonsFileTitle: proposal.commonsFileTitle,
+    mime: downloaded.mime,
+    blob: downloaded.blob,
+    byteLength: hashBuffer.byteLength,
+    previewUrl: imageUrl,
+    licenseCode: license.normalizedLicenseCode,
+    verificationOutcome: license.overallLicenseOutcome,
+    verificationSummary: license.blockingReasons.join('; ') || null,
+    interactive: input.interactiveStorageDecision === true,
+    resolution: input.storageResolution,
+  });
+  if (placed.kind === 'stop') {
+    const stopped = placed.result;
+    if (
+      stopped.ok === true &&
+      input.storageResolution === 'reuse_existing' &&
+      input.assignToEntity !== false &&
+      !stopped.assignmentId
+    ) {
+      try {
+        const assignmentId = await assignWikimediaAssetToEntity({
+          entity: input.entity,
+          assignmentRole: input.assignmentRole,
+          publicUrl: stopped.publicUrl,
+          storagePath: stopped.storagePath,
+        });
+        return {
+          ...stopped,
+          assignmentId,
+          message: wikimediaImportMessage({
+            adminReuse: true,
+            assigned: true,
+            autoPath: false,
+          }),
+        };
+      } catch (err) {
+        return {
+          ok: false,
+          stage: 'assignment',
+          message: err instanceof Error ? err.message : 'Assegnazione asset esistente fallita.',
+        };
+      }
     }
-  } else {
-    storageCreatedByThisRun = true;
+    return stopped;
   }
+  storagePath = placed.storagePath;
+  const storageCreatedByThisRun = placed.createdThisRun;
 
   const {
     data: { publicUrl },
@@ -546,60 +1039,57 @@ export async function runCommonsDownloadPipeline(
 
     await patchMediaAssetProvenance(mediaAssetId, provenancePatch);
 
-    const markQueue = !autoPath;
+    const adminReuse = input.storageResolution === 'reuse_existing';
+    const assignAsset = shouldAssignWikimediaAsset({
+      autoPath,
+      assignToEntity: input.assignToEntity !== false,
+      adminReuse,
+    });
+
+    if (materialized.wikimediaValidated) {
+      if (assignAsset) {
+        assignmentId = await assignWikimediaAssetToEntity({
+          entity: input.entity,
+          assignmentRole: input.assignmentRole,
+          publicUrl,
+          storagePath,
+        });
+      }
+      return {
+        ok: true,
+        mediaAssetId,
+        assignmentId,
+        publicUrl,
+        storagePath,
+        autoVerified: true,
+        verificationRunId: null,
+        queuedForAdminVerify: false,
+        message:
+          'File Wikimedia già validato. Questo import non modifica la validazione né il toggle pubblico.',
+      };
+    }
+
     const verificationSteps = buildVerificationStepsFromLicense(license.stepOutcomes, downloaded);
 
     const { data: runId, error: runError } = await mf3Rpc<string>('record_image_verification_run', {
       p_media_asset_id: mediaAssetId,
       p_steps: verificationSteps,
-      p_ai_summary: markQueue
-        ? 'Import Wikimedia: licenza/provenienza non ammissibile al percorso automatico — coda verify.'
-        : 'Import Wikimedia: CC BY 4.0 verificata su metadati Commons (checklist §6.1).',
-      p_mark_verify_queue: markQueue,
+      p_ai_summary: autoPath
+        ? 'Import Wikimedia sul percorso automatico. Il file resta non validato, fuori dalla coda verify_ai_image.'
+        : 'Import Wikimedia: percorso automatico non completo. Resta DA VALIDARE, fuori dalla coda verify_ai_image.',
+      p_mark_verify_queue: false,
     });
 
     if (runError) {
       throw new Error(runError.message);
     }
 
-    if (autoPath && input.assignToEntity !== false) {
-      const { data: transitionedStatus, error: transitionError } = await mf3Rpc<string>(
-        'transition_media_asset_status',
-        {
-          p_media_asset_id: mediaAssetId,
-          p_target_status: 'active',
-          p_admin_rationale: 'Commons CC BY 4.0: auto-path post verification run (MF4).',
-        },
-      );
-      if (transitionError) {
-        throw new Error(
-          `Transizione asset Wikimedia verificato fallita: ${transitionError.message}`,
-        );
-      }
-      if (transitionedStatus !== 'active') {
-        throw new Error(
-          `Transizione asset Wikimedia: stato atteso active, ricevuto ${String(transitionedStatus)}.`,
-        );
-      }
-
-      const entityTypeForAssignment: AssignmentEntityType = input.entity.entityType;
-
-      const assignmentRole: 'primary' | 'gallery' =
-        entityTypeForAssignment === 'poi' || entityTypeForAssignment === 'city'
-          ? 'gallery'
-          : (input.assignmentRole ?? 'primary');
-
-      assignmentId = await upsertEntityImageAssignmentFromSource({
-        entityType: entityTypeForAssignment,
-        entityId: input.entity.entityId,
-        cityId: input.entity.cityId,
-        assignmentRole,
-        source: {
-          imageUrl: publicUrl,
-          storageBucket: PUBLIC_BUCKET,
-          storagePath,
-          originType: 'wikimedia',
-        },
+    if (assignAsset) {
+      assignmentId = await assignWikimediaAssetToEntity({
+        entity: input.entity,
+        assignmentRole: input.assignmentRole,
+        publicUrl,
+        storagePath,
       });
     }
 
@@ -609,12 +1099,14 @@ export async function runCommonsDownloadPipeline(
       assignmentId,
       publicUrl,
       storagePath,
-      autoVerified: autoPath,
+      autoVerified: false,
       verificationRunId: typeof runId === 'string' ? runId : null,
-      queuedForAdminVerify: markQueue,
-      message: markQueue
-        ? 'Foto importata in quarantena/coda verifica — nessuna primary assignment creata.'
-        : 'Foto CC BY 4.0 verificata importata e associata.',
+      queuedForAdminVerify: false,
+      message: wikimediaImportMessage({
+        adminReuse,
+        assigned: assignmentId !== null,
+        autoPath,
+      }),
     };
   } catch (err) {
     const primaryMessage =

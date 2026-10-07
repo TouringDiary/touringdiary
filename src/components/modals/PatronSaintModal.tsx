@@ -10,8 +10,10 @@ import {
 import { CloseButton } from '@/components/ui/controls/CloseButton';
 import { isPatronPublicContentHidden } from '@/constants/governance';
 import { Z_MODAL, Z_OVERLAY } from '@/constants/zIndex';
+import { resolvePatronPublicHeroImageUrl } from '@/domain/patron/resolvePatronDisplayImageUrl';
 import { useCityPatronGallery } from '@/hooks/patron/useCityPatronGallery';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
+import { usePatronMasterImageUrl } from '@/hooks/usePatronMasterImageUrl';
 import { resolvePatronPrimaryImageUrl } from '@/services/media/imageAssignmentVisibilityService';
 import type { CityPatronGalleryPhoto } from '@/types/models/patronGallery';
 import type { User } from '@/types/users';
@@ -115,6 +117,7 @@ export const PatronSaintModal = ({ isOpen, onClose, city, user, onOpenAuth }: Pr
   const patron = city.details.patronDetails;
   const patronEditorialStatus = city.details.patronEditorialStatus;
   const isPatronGateActive = isPatronPublicContentHidden(patronEditorialStatus);
+  const masterPatronUrl = usePatronMasterImageUrl();
   const [visibleHeroImageUrl, setVisibleHeroImageUrl] = useState<string | null>(null);
   const [heroImageLoading, setHeroImageLoading] = useState(false);
 
@@ -129,8 +132,12 @@ export const PatronSaintModal = ({ isOpen, onClose, city, user, onOpenAuth }: Pr
     void resolvePatronPrimaryImageUrl(city.id)
       .then((url) => {
         if (cancelled) return;
-        const trimmed = url?.trim() ?? '';
-        setVisibleHeroImageUrl(trimmed.length > 0 ? trimmed : null);
+        const resolved = resolvePatronPublicHeroImageUrl(
+          url,
+          city.details.patronDetails,
+          masterPatronUrl,
+        );
+        setVisibleHeroImageUrl(resolved.length > 0 ? resolved : null);
       })
       .catch((err: unknown) => {
         console.warn('[PatronSaintModal] risoluzione foto primaria Patrono fallita:', err);
@@ -142,7 +149,7 @@ export const PatronSaintModal = ({ isOpen, onClose, city, user, onOpenAuth }: Pr
     return () => {
       cancelled = true;
     };
-  }, [isOpen, isPatronGateActive, city.id]);
+  }, [isOpen, isPatronGateActive, city.id, city.details.patronDetails, masterPatronUrl]);
 
   const { photos, isLoading, reload } = useCityPatronGallery(
     city.id,

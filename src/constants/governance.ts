@@ -371,7 +371,32 @@ export const CONTENT_REPORT_REASON_VALUES = [
 
 export type ContentReportReason = (typeof CONTENT_REPORT_REASON_VALUES)[number];
 
-export const ASSIGNMENT_STATUS_DB_VALUES = ['active', 'suspended', 'removed', 'replaced'] as const;
+export const ASSIGNMENT_STATUS_DB_VALUES = [
+  'active',
+  'suspended',
+  'removed',
+  'replaced',
+  'restored',
+] as const;
+
+export const PUBLICLY_VISIBLE_ASSIGNMENT_STATUSES = ['active', 'restored'] as const;
+
+export function isPubliclyVisibleAssignmentStatus(status: string | null | undefined): boolean {
+  return (PUBLICLY_VISIBLE_ASSIGNMENT_STATUSES as readonly string[]).includes(status ?? '');
+}
+
+export const ASSIGNMENT_STATUS_LABELS: Record<AssignmentStatusDb, string> = {
+  active: 'ATTIVO',
+  suspended: 'SOSPESO',
+  restored: 'RIPRISTINATO',
+  removed: 'RIMOSSO',
+  replaced: 'SOSTITUITO',
+};
+
+export function assignmentStatusLabel(status: string | null | undefined): string {
+  const match = ASSIGNMENT_STATUS_DB_VALUES.find((value) => value === status);
+  return match ? ASSIGNMENT_STATUS_LABELS[match] : (status ?? '');
+}
 
 export type AssignmentStatusDb = (typeof ASSIGNMENT_STATUS_DB_VALUES)[number];
 
@@ -446,7 +471,7 @@ export type ImageAssetStatusDb = (typeof IMAGE_ASSET_STATUS_DB_VALUES)[number];
 export const IMAGE_ASSET_STATUS_LABELS: Record<ImageAssetStatusDb, string> = {
   active: 'ATTIVO',
   suspended: 'SOSPESO',
-  restored: 'RIPRISTINATO',
+  restored: 'RIATTIVATO',
   replaced: 'SOSTITUITO',
   removed: 'RIMOSSO',
   verify_ai_image: 'VERIFICARE IMMAGINE AI',

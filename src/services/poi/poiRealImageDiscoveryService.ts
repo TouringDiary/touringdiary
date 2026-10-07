@@ -10,7 +10,9 @@ import {
 } from '@/services/media/mediaAssetService';
 import { supabase } from '@/services/supabaseClient';
 import {
+  asCommonsDownloadImported,
   buildCommonsFileDescriptionPageUrl,
+  type CommonsDownloadPipelineResult,
   runCommonsDownloadPipeline,
 } from '@/services/wikimedia/commonsDownloadPipeline';
 import { parseCommonsLicenseMetadata } from '@/services/wikimedia/commonsLicenseParser';
@@ -21,6 +23,7 @@ import {
 import {
   fetchCommonsExtMetadata,
   lookupWikidataP18Proposal,
+  WIKIDATA_MATCH_MIN_SCORE,
   type WikidataCandidate,
   type WikidataLookupResult,
   type WikidataP18Proposal,
@@ -77,6 +80,25 @@ async function loadPoiRow(poiId: string, cityId: string): Promise<PoiRow | null>
   };
 }
 
+async function poiHasCurrentWikimediaAssignment(poiId: string, cityId: string): Promise<boolean> {
+  const { data, error } = await entityImageAssignmentsQuery()
+    .select('media_asset_id')
+    .eq('entity_type', 'poi')
+    .eq('entity_id', poiId)
+    .eq('city_id', cityId)
+    .eq('is_current', true)
+    .in('assignment_status', ['active', 'restored']);
+  if (error) throw new Error(error.message);
+  const ids = (data ?? [])
+    .map((row) => (typeof row.media_asset_id === 'string' ? row.media_asset_id.trim() : ''))
+    .filter((id) => id.length > 0);
+  const assets = await fetchMediaAssetsByIds(ids);
+  for (const asset of assets.values()) {
+    if (asset.origin_type === 'wikimedia') return true;
+  }
+  return false;
+}
+
 async function buildD22GuardContext(
   poiId: string,
   cityId: string,
@@ -88,7 +110,7 @@ async function buildD22GuardContext(
     .eq('entity_id', poiId)
     .eq('city_id', cityId)
     .eq('is_current', true)
-    .eq('assignment_status', 'active')
+    .in('assignment_status', ['active', 'restored'])
     .in('assignment_role', ['primary', 'gallery']);
 
   if (error) throw new Error(error.message);
@@ -127,6 +149,8 @@ async function buildD22GuardContext(
       assignmentStatus: row.assignment_status,
       originType,
       assetStatus,
+      wikimediaValidated: asset.wikimedia_validated,
+      adminBlocked: asset.admin_blocked,
       publicUrl: bucket && path ? buildPublicStorageUrl(bucket, path) : null,
       createdAt: row.created_at,
       stableId: mediaAssetId,
@@ -175,6 +199,16 @@ export async function discoverForPoi(
     return { status: 'failed', stage: 'poi', message: 'POI non trovato.' };
   }
 
+  if (
+    options.activation === 'on_create' &&
+    (await poiHasCurrentWikimediaAssignment(trimmedPoiId, trimmedCityId))
+  ) {
+    return {
+      status: 'skipped',
+      reason: 'Il POI ha già una foto Wikimedia corrente. Il salvataggio non rilancia l’import.',
+    };
+  }
+
   const lookup = await lookupWikidataP18Proposal({
     label: poi.name,
     description: poi.description,
@@ -211,14 +245,15 @@ export async function discoverForPoi(
     assignmentRole: 'gallery',
   });
 
-  if (!pipeline.ok) {
-    return { status: 'failed', stage: pipeline.stage, message: pipeline.message };
+  const imported = asCommonsDownloadImported(pipeline);
+  if ('failed' in imported) {
+    return { status: 'failed', stage: imported.failed.stage, message: imported.failed.message };
   }
 
   return {
     status: 'imported',
-    message: pipeline.message,
-    mediaAssetId: pipeline.mediaAssetId,
+    message: imported.message,
+    mediaAssetId: imported.mediaAssetId,
   };
 }
 
@@ -254,6 +289,29 @@ function isHardBlockedLicense(blockingReasons: string[]): boolean {
   return blockingReasons.some(
     (reason) => reason === 'Licenza assente' || reason === 'Formato file non supportato',
   );
+}
+
+const MANUAL_WIKIMEDIA_PROPOSAL_LIMIT = 5;
+
+function manualCandidatePool(lookup: WikidataLookupResult): {
+  pool: WikidataCandidate[];
+  matchingAmbiguous: boolean;
+} {
+  if (lookup.status === 'ambiguous') {
+    return {
+      matchingAmbiguous: true,
+      pool: lookup.candidates.filter((row) => row.matchScore >= WIKIDATA_MATCH_MIN_SCORE),
+    };
+  }
+  if (lookup.status === 'proposal' || lookup.status === 'none') {
+    return {
+      matchingAmbiguous: false,
+      pool: (lookup.eligibleCandidates ?? []).filter(
+        (row) => row.matchScore >= WIKIDATA_MATCH_MIN_SCORE,
+      ),
+    };
+  }
+  return { matchingAmbiguous: false, pool: [] };
 }
 
 async function previewFromLookup(
@@ -305,7 +363,10 @@ async function previewFromLookup(
   }
 }
 
-/** Lookup manuale §38.2: max 5 entity, prefetch licenza Commons, ranking unificato. */
+/**
+ * Lookup manuale: una ricerca Wikidata, poi fino a 5 proposte con P18.
+ * Il preview CC BY 4.0 non è la verifica definitiva del file e non interrompe la raccolta.
+ */
 export async function buildManualWikimediaProposalsForPoi(
   poiId: string,
   cityId: string,
@@ -320,22 +381,9 @@ export async function buildManualWikimediaProposalsForPoi(
     cityName: cityName ?? null,
   });
 
-  const candidates: WikidataCandidate[] =
-    firstLookup.status === 'ambiguous'
-      ? firstLookup.candidates.slice(0, 5)
-      : firstLookup.status === 'proposal'
-        ? [
-            {
-              qid: firstLookup.proposal.qid,
-              label: firstLookup.proposal.qLabel,
-              description: firstLookup.proposal.qDescription,
-              matchScore: 100,
-              ambiguous: false,
-            },
-          ]
-        : [];
+  const { pool } = manualCandidatePool(firstLookup);
 
-  if (candidates.length === 0) {
+  if (pool.length === 0) {
     return {
       poiName: poi.name,
       proposals: [],
@@ -347,16 +395,31 @@ export async function buildManualWikimediaProposalsForPoi(
   }
 
   const previews: WikimediaProposalPreview[] = [];
-  for (const candidate of candidates) {
+  for (const candidate of pool) {
+    if (previews.length >= MANUAL_WIKIMEDIA_PROPOSAL_LIMIT) break;
     const lookup =
       firstLookup.status === 'proposal' && candidate.qid === firstLookup.proposal.qid
         ? firstLookup
         : await lookupWikidataP18Proposal({
             label: candidate.label,
+            description: candidate.description,
             knownQid: candidate.qid,
             cityName: cityName ?? null,
           });
-    previews.push(await previewFromLookup(candidate, lookup));
+    const preview = await previewFromLookup(candidate, lookup);
+    if (!preview.proposal) continue;
+    previews.push(preview);
+  }
+
+  if (previews.length === 0) {
+    return {
+      poiName: poi.name,
+      proposals: [],
+      error:
+        firstLookup.status === 'error' || firstLookup.status === 'none'
+          ? firstLookup.message
+          : 'Nessuna proposta Wikimedia disponibile.',
+    };
   }
 
   return { poiName: poi.name, proposals: rankWikimediaProposals(previews) };
@@ -366,18 +429,17 @@ export async function importWikimediaProposalForPoi(
   poiId: string,
   cityId: string,
   proposal: WikidataP18Proposal,
-): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
-  const result = await runCommonsDownloadPipeline({
+  storageResolution?: 'reuse_existing' | 'import_new',
+): Promise<CommonsDownloadPipelineResult> {
+  return runCommonsDownloadPipeline({
     proposal,
     adminConfirmedQid: true,
     entity: { entityType: 'poi', entityId: poiId.trim(), cityId: cityId.trim() },
     assignToEntity: true,
     assignmentRole: 'gallery',
+    interactiveStorageDecision: true,
+    storageResolution,
   });
-  if (!result.ok) {
-    return { ok: false, message: `${result.stage}: ${result.message}` };
-  }
-  return { ok: true, message: result.message };
 }
 
 /** Compat legacy — mappa le preview §38.2 sul tipo storico. */

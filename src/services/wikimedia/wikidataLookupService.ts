@@ -74,16 +74,33 @@ export type WikidataP18Proposal = {
   lookupNotes: string[];
 };
 
+/** Soglia di matching già applicata da lookupWikidataP18Proposal. */
+export const WIKIDATA_MATCH_MIN_SCORE = 40;
+
 export type WikidataLookupResult =
   | { status: 'error'; message: string }
-  | { status: 'none'; message: string }
+  | { status: 'none'; message: string; eligibleCandidates?: WikidataCandidate[] }
   | { status: 'ambiguous'; candidates: WikidataCandidate[]; message: string }
-  | { status: 'proposal'; proposal: WikidataP18Proposal };
+  | {
+      status: 'proposal';
+      proposal: WikidataP18Proposal;
+      /** Stessa ricerca wbsearchentities, già ordinata per matchScore, soglia invariata. */
+      eligibleCandidates?: WikidataCandidate[];
+    };
 
+type WikidataSearchMatch = {
+  type?: string;
+  language?: string;
+  text?: string;
+};
+
+/** Risposta `wbsearchentities`: label principale, match della ricerca e alias restano distinti. */
 type WikidataSearchEntity = {
   id?: string;
   label?: string;
   description?: string;
+  match?: WikidataSearchMatch;
+  aliases?: string[];
 };
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -107,13 +124,28 @@ function normalizeText(value: string): string {
     .trim();
 }
 
+function aliasTexts(entity: WikidataSearchEntity): string[] {
+  const listed = (entity.aliases ?? []).filter((item) => item.trim().length > 0);
+  const match = entity.match;
+  const matchedAlias =
+    match?.type === 'alias' && typeof match.text === 'string' ? match.text.trim() : '';
+  if (!matchedAlias || listed.some((item) => item === matchedAlias)) return listed;
+  return [...listed, matchedAlias];
+}
+
+function hasExactNormalizedAlias(entity: WikidataSearchEntity, subjectLabel: string): boolean {
+  return aliasTexts(entity).some((alias) => normalizeText(alias) === subjectLabel);
+}
+
 function scoreCandidate(entity: WikidataSearchEntity, subject: WikidataLookupSubject): number {
   let score = 0;
   const entityLabel = normalizeText(entity.label ?? '');
   const subjectLabel = normalizeText(subject.label);
-  if (!entityLabel || !subjectLabel) return 0;
+  if (!subjectLabel) return 0;
+  const exactAlias = hasExactNormalizedAlias(entity, subjectLabel);
+  if (!entityLabel && !exactAlias) return 0;
 
-  if (entityLabel === subjectLabel) score += 100;
+  if ((entityLabel && entityLabel === subjectLabel) || exactAlias) score += 100;
   else if (entityLabel.includes(subjectLabel) || subjectLabel.includes(entityLabel)) score += 40;
 
   const entityDesc = normalizeText(entity.description ?? '');
@@ -274,6 +306,7 @@ export async function lookupWikidataP18Proposal(
     let qDescription = subject.description ?? null;
     const notes: string[] = [];
     let confidence: WikidataP18Proposal['confidence'] = 'medium';
+    let eligibleCandidates: WikidataCandidate[] = [];
 
     if (qid) {
       if (!isValidWikidataQid(qid)) {
@@ -301,12 +334,14 @@ export async function lookupWikidataP18Proposal(
       }
 
       const top = candidates[0];
-      if (top.matchScore < 40) {
+      if (top.matchScore < WIKIDATA_MATCH_MIN_SCORE) {
         return {
           status: 'none',
           message: 'Nessuna corrispondenza Wikidata sufficientemente affidabile.',
         };
       }
+
+      eligibleCandidates = candidates.filter((row) => row.matchScore >= WIKIDATA_MATCH_MIN_SCORE);
 
       if (top.ambiguous) {
         return {
@@ -325,16 +360,19 @@ export async function lookupWikidataP18Proposal(
     }
 
     const p18 = await fetchP18CommonsFileTitle(qid);
+    const searchedCandidates = eligibleCandidates.length > 0 ? eligibleCandidates : undefined;
     if (p18.ambiguous) {
       return {
         status: 'none',
         message: `Elemento ${qid}: più immagini P18 plausibili — nessuna selezione automatica.`,
+        eligibleCandidates: searchedCandidates,
       };
     }
     if (!p18.title) {
       return {
         status: 'none',
         message: `Elemento ${qid} senza proprietà P18 (immagine) — nessuna proposta automatica.`,
+        eligibleCandidates: searchedCandidates,
       };
     }
 
@@ -358,6 +396,7 @@ export async function lookupWikidataP18Proposal(
         requiresAdminConfirm,
         lookupNotes: notes,
       },
+      eligibleCandidates: searchedCandidates,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Errore lookup Wikidata.';

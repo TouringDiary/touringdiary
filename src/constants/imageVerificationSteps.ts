@@ -23,6 +23,15 @@ export const IMAGE_VERIFICATION_STEP_DEFINITIONS = [
 export type ImageVerificationStepCode =
   (typeof IMAGE_VERIFICATION_STEP_DEFINITIONS)[number]['code'];
 
+/** Insieme esatto dei codici canonici: niente mancanti, niente extra, niente duplicati. */
+export function isExactCanonicalVerificationStepSet(codes: readonly string[]): boolean {
+  const required = IMAGE_VERIFICATION_STEP_DEFINITIONS.map((definition) => definition.code);
+  if (codes.length !== required.length) return false;
+  const present = new Set(codes);
+  if (present.size !== required.length) return false;
+  return required.every((code) => present.has(code));
+}
+
 export type VerificationStepGridRow = {
   stepCode: ImageVerificationStepCode;
   stepOrder: number;

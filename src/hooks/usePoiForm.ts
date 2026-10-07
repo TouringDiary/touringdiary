@@ -1,35 +1,100 @@
 import { useEffect, useState } from 'react';
+import { resolveCategoryPlaceholderUrl } from '@/domain/poi/resolvePoiDisplayImageUrl';
 import { GEO_CONFIG } from '../constants/geoConfig';
 import { generatePoiCoords } from '../services/ai';
 import { getCorrectCategory } from '../services/ai/utils/taxonomyUtils';
-import { getCachedSetting } from '../services/settingsService';
+import { getCategoryPlaceholders } from '../services/settingsService';
 import type { AffiliateLinks, PointOfInterest } from '../types/index';
 import {
   hasRequiredOpeningHours,
+  isAdminOpeningHoursPristine,
+  isAdminSubCategoryPristine,
   mapPoiToFormData,
   normalizePoiFormData,
   type PoiFormData,
 } from '../types/write/poiForm';
+import {
+  parseStorageLocationFromPublicUrl,
+  samePublicStorageObject,
+} from '../utils/storagePathFromPublicUrl';
+
+const placeholderUrlForCategory = (category: string): string | null =>
+  resolveCategoryPlaceholderUrl({
+    category,
+    categoryPlaceholders: getCategoryPlaceholders(),
+  }) ?? null;
+
+/** URL del campo Admin: upload admin o link esterno digitato. Non la foto pubblica D-22. */
+function adminOwnedImageUrl(url: string, category: string): string {
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+  const placeholder = placeholderUrlForCategory(category);
+  if (placeholder && trimmed === placeholder) return '';
+  const stored = parseStorageLocationFromPublicUrl(trimmed);
+  if (stored?.storagePath) {
+    const root = stored.storagePath.split('/')[0] ?? '';
+    if (root === 'admin_uploads' || root === 'admin_assets') return trimmed;
+    return '';
+  }
+  try {
+    const protocol = new URL(trimmed).protocol;
+    if (protocol === 'http:' || protocol === 'https:') return trimmed;
+  } catch {
+    return '';
+  }
+  return '';
+}
+
+function formFromPoi(poi: PointOfInterest | null): PoiFormData {
+  const data = mapPoiToFormData(poi);
+  return { ...data, imageUrl: adminOwnedImageUrl(data.imageUrl, data.category) };
+}
 
 export const usePoiForm = (poi: PointOfInterest | null, cityName?: string) => {
-  const [formData, setFormData] = useState<PoiFormData>(mapPoiToFormData(poi));
+  const [formData, setFormData] = useState<PoiFormData>(formFromPoi(poi));
   const [initialState, setInitialState] = useState<string>('');
   const [isImageValid, setIsImageValid] = useState(true);
   const [isLocating, setIsLocating] = useState(false);
 
   useEffect(() => {
-    const data = mapPoiToFormData(poi);
+    const data = formFromPoi(poi);
     setFormData(data);
     setInitialState(JSON.stringify(data));
   }, [poi]);
 
   const isDirty = JSON.stringify(formData) !== initialState;
 
+  const releaseAdminImageUrl = (imageUrl: string) => {
+    const target = imageUrl.trim();
+    if (!target) return;
+    setFormData((prev) =>
+      samePublicStorageObject(prev.imageUrl, target)
+        ? { ...prev, imageUrl: '', image_status: 'missing' }
+        : prev,
+    );
+    setInitialState((raw) => {
+      try {
+        const parsed = JSON.parse(raw) as PoiFormData;
+        if (!samePublicStorageObject(parsed.imageUrl, target)) return raw;
+        return JSON.stringify({ ...parsed, imageUrl: '', image_status: 'missing' });
+      } catch {
+        return raw;
+      }
+    });
+  };
+
   const updateField = <K extends keyof PoiFormData>(field: K, value: PoiFormData[K]) => {
     setFormData((prev) => {
       const newData = { ...prev, [field]: value };
 
       // --- AUTOMAZIONE TASSONOMIA ---
+      if (field === 'subCategory') {
+        newData.subCategoryEdited = true;
+      }
+      if (field === 'openingHours') {
+        newData.openingHoursEdited = true;
+      }
+
       if (field === 'subCategory' && typeof value === 'string') {
         const autoCategory = getCorrectCategory(value, prev.category, prev.name);
 
@@ -110,11 +175,11 @@ export const usePoiForm = (poi: PointOfInterest | null, cityName?: string) => {
   };
 
   const validate = () => {
-    if (!formData.subCategory) {
+    if (!isAdminSubCategoryPristine(formData) && !formData.subCategory.trim()) {
       return 'ERRORE: La Sottocategoria è obbligatoria.';
     }
 
-    if (!hasRequiredOpeningHours(formData.openingHours)) {
+    if (!isAdminOpeningHoursPristine(formData) && !hasRequiredOpeningHours(formData.openingHours)) {
       return 'ERRORE: Giorni e almeno una fascia oraria di apertura sono obbligatori.';
     }
 
@@ -122,7 +187,7 @@ export const usePoiForm = (poi: PointOfInterest | null, cityName?: string) => {
       return 'Correggi i problemi di copyright immagine.';
     }
 
-    const placeholder = formData.category ? getCachedSetting(formData.category) : null;
+    const placeholder = formData.category ? placeholderUrlForCategory(formData.category) : null;
 
     const hasAsset = !!formData.imageUrl || !!placeholder;
 
@@ -133,7 +198,9 @@ export const usePoiForm = (poi: PointOfInterest | null, cityName?: string) => {
     return null;
   };
 
-  const categoryPlaceholder = formData.category ? getCachedSetting(formData.category) : null;
+  const categoryPlaceholder = formData.category
+    ? placeholderUrlForCategory(formData.category)
+    : null;
 
   const isMissingAsset = !formData.imageUrl && !categoryPlaceholder;
 
@@ -153,6 +220,7 @@ export const usePoiForm = (poi: PointOfInterest | null, cityName?: string) => {
     setIsImageValid,
     isLocating,
     updateField,
+    releaseAdminImageUrl,
     updateCoord,
     updateAffiliate,
     handleAutoLocate,

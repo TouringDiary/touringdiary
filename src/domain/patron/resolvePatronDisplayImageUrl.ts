@@ -74,6 +74,21 @@ export function resolvePatronDisplayImageUrl(
   return masterPatronUrl?.trim() ?? '';
 }
 
+/**
+ * Hero pubblico: assignment primario se pubblicato, altrimenti la stessa risoluzione
+ * dell’anteprima admin (`resolvePatronDisplayImageUrl`: foto città, poi Patrono Master).
+ * Il Master resta in `global_settings.default_patron_image` e non viene scritto sul patrono.
+ */
+export function resolvePatronPublicHeroImageUrl(
+  assignmentUrl: string | null | undefined,
+  patronDetails: PatronDetails | null | undefined,
+  masterPatronUrl: string | null | undefined,
+): string {
+  const published = assignmentUrl?.trim() ?? '';
+  if (published) return published;
+  return resolvePatronDisplayImageUrl(patronDetails, masterPatronUrl);
+}
+
 export function isPatronUsingMasterFallback(
   patronDetails: PatronDetails | null | undefined,
 ): boolean {

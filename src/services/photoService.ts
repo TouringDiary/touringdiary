@@ -158,7 +158,7 @@ async function attachPhotoSubmissionAssignmentIds(
       enriched.push({ ...photo, assignmentId: null });
       continue;
     }
-    if (assignment.assignment_status !== 'active') {
+    if (assignment.assignment_status !== 'active' && assignment.assignment_status !== 'restored') {
       continue;
     }
     enriched.push({ ...photo, assignmentId: assignment.id });
@@ -180,7 +180,7 @@ export async function getCurrentImageAssignmentId(
     .eq('city_id', cityId)
     .eq('assignment_role', assignmentRole)
     .eq('is_current', true)
-    .eq('assignment_status', 'active')
+    .in('assignment_status', ['active', 'restored'])
     .maybeSingle();
 
   if (error) {
@@ -1298,7 +1298,7 @@ async function revokePhotoSubmissionAssignment(
     .eq('city_id', cityId)
     .eq('assignment_role', 'primary')
     .eq('is_current', true)
-    .eq('assignment_status', 'active')
+    .in('assignment_status', ['active', 'restored'])
     .select('id');
 
   if (updateError) {

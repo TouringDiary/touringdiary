@@ -1,4 +1,3 @@
-import { POI_CATEGORY_VALUES, POI_SUBCATEGORY_VALUES } from '@/constants/governance';
 import { LAYOUT } from '@/constants/layout';
 import {
   pushDiaryAddAction,
@@ -9,74 +8,13 @@ import { useItinerary } from '@/context/ItineraryContext';
 import { useModal } from '@/context/ModalContext';
 import { useUser } from '@/context/UserContext';
 import { stampItineraryItemAuthor } from '@/domain/diary/diaryAuthorTracking';
+import {
+  isDiaryMoveDragPayload,
+  parseDiaryDropPointOfInterest,
+} from '@/domain/diary/diaryDropPayload';
+import { isDiaryResourcePoi } from '@/domain/diary/diaryResource';
 import { randomUUID } from '@/utils/runtimeId';
 import type { ItineraryItem, PointOfInterest } from '../../types/index';
-
-/** Resource POI → diary footer (not timeline stop). Includes legacy leisure/agency. */
-const isResourcePoi = (poi: PointOfInterest): boolean =>
-  poi.resourceType === 'guide' ||
-  poi.resourceType === 'operator' ||
-  poi.resourceType === 'service' ||
-  (poi.category === 'leisure' && poi.subCategory === 'agency');
-
-const isPlainObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-
-interface DiaryMoveDragPayload {
-  type: 'MOVE_ITEM';
-  id: string;
-  forceSwap?: boolean;
-}
-
-const isDiaryMoveDragPayload = (value: unknown): value is DiaryMoveDragPayload =>
-  isPlainObject(value) &&
-  value.type === 'MOVE_ITEM' &&
-  typeof value.id === 'string' &&
-  (value.forceSwap === undefined || typeof value.forceSwap === 'boolean');
-
-const isOptionalStringField = (value: unknown): boolean =>
-  value === undefined || typeof value === 'string';
-
-const isOptionalResourceTypeField = (
-  value: unknown,
-): value is PointOfInterest['resourceType'] | undefined =>
-  value === undefined || value === 'guide' || value === 'operator' || value === 'service';
-
-const isPoiCategoryField = (value: unknown): value is PointOfInterest['category'] => {
-  if (typeof value !== 'string') return false;
-  for (const category of POI_CATEGORY_VALUES) {
-    if (category === value) return true;
-  }
-  return false;
-};
-
-const isOptionalPoiSubCategoryField = (
-  value: unknown,
-): value is PointOfInterest['subCategory'] | undefined => {
-  if (value === undefined) return true;
-  if (typeof value !== 'string') return false;
-  for (const sub of POI_SUBCATEGORY_VALUES) {
-    if (sub === value) return true;
-  }
-  return false;
-};
-
-/**
- * Drag/drop producer: JSON.stringify(poi) con poi: PointOfInterest.
- * Dopo JSON.parse certifica i campi obbligatori del contratto + opzionali letti dal path add/resource.
- * (PointOfInterest richiede solo id|name|description|category; il resto è opzionale.)
- */
-const isDroppablePointOfInterest = (value: unknown): value is PointOfInterest => {
-  if (!isPlainObject(value)) return false;
-  if (typeof value.id !== 'string') return false;
-  if (typeof value.name !== 'string') return false;
-  if (typeof value.description !== 'string') return false;
-  if (!isPoiCategoryField(value.category)) return false;
-  if (!isOptionalStringField(value.cityId)) return false;
-  if (!isOptionalResourceTypeField(value.resourceType)) return false;
-  if (!isOptionalPoiSubCategoryField(value.subCategory)) return false;
-  return true;
-};
 
 export const useDiaryInteractions = (
   activeCityId: string | null,
@@ -143,7 +81,7 @@ export const useDiaryInteractions = (
       return false;
     }
 
-    const isResource = isResourcePoi(pendingPoi);
+    const isResource = isDiaryResourcePoi(pendingPoi);
 
     const newItem: ItineraryItem = {
       id: randomUUID(),
@@ -256,11 +194,11 @@ export const useDiaryInteractions = (
       }
 
       // CASE B: Dropping New POI (producer: JSON.stringify(PointOfInterest))
-      if (!isDroppablePointOfInterest(data)) {
+      const poi = parseDiaryDropPointOfInterest(data);
+      if (!poi) {
         console.error('Drop error: payload non riconosciuto come POI o MOVE_ITEM');
         return;
       }
-      const poi = data;
 
       // FIX ROOT CAUSE: Se non ci sono date, apri il modale di configurazione invece di bloccare
       if (!itinerary.startDate || !itinerary.endDate) {
@@ -346,7 +284,7 @@ export const useDiaryInteractions = (
       return;
     }
 
-    const isResource = isResourcePoi(poi);
+    const isResource = isDiaryResourcePoi(poi);
 
     if (action === 'replace') {
       pushDiaryDeleteAction(pushDiaryUndo, existingItem);

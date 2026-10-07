@@ -35,7 +35,11 @@ export const AdminModals = ({
 }: AdminModalsProps) => {
   const handleAdminSave = async (updatedPoi: PointOfInterest) => {
     if (!user || (user.role !== 'admin_all' && user.role !== 'admin_limited')) return;
-    const targetCityId = updatedPoi.cityId || activeCityId || 'napoli';
+    const targetCityId = updatedPoi.cityId?.trim() || activeCityId?.trim() || '';
+    if (!targetCityId) {
+      alert('Salvataggio interrotto: città del POI non disponibile.');
+      return;
+    }
     try {
       await saveSinglePoi(updatedPoi, targetCityId, user);
       openModal('adminSuccess');
@@ -68,6 +72,7 @@ export const AdminModals = ({
           onSave={handleAdminSave}
           poi={modalProps.poi}
           cityName={activeCitySummary?.name || ''}
+          canHardDeletePhotos={user.role === 'admin_all'}
         />
       )}
 

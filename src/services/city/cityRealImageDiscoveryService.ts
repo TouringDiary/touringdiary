@@ -1,5 +1,6 @@
 import { supabase } from '@/services/supabaseClient';
 import {
+  asCommonsDownloadImported,
   type CommonsDownloadPipelineResult,
   runCommonsDownloadPipeline,
 } from '@/services/wikimedia/commonsDownloadPipeline';
@@ -91,7 +92,7 @@ export async function lookupCityHeroWikimediaProposal(
   return {
     status: 'lookup',
     lookup,
-    message: lookup.status === 'error' ? lookup.message : lookup.message,
+    message: lookup.message,
   };
 }
 
@@ -131,13 +132,14 @@ export async function importConfirmedCityHeroWikimedia(
     };
   }
 
-  if (!pipeline.ok) {
-    return { status: 'failed', stage: pipeline.stage, message: pipeline.message };
+  const imported = asCommonsDownloadImported(pipeline);
+  if ('failed' in imported) {
+    return { status: 'failed', stage: imported.failed.stage, message: imported.failed.message };
   }
 
   return {
     status: 'imported',
-    message: pipeline.message,
+    message: imported.message,
     togglePersisted: false,
   };
 }
@@ -192,7 +194,7 @@ export async function runAutomaticCityHeroWikimediaDiscovery(
     return {
       status: 'lookup',
       lookup,
-      message: lookup.status === 'error' ? lookup.message : lookup.message,
+      message: lookup.message,
     };
   }
 
@@ -229,13 +231,14 @@ export async function runAutomaticCityHeroWikimediaDiscovery(
     };
   }
 
-  if (!pipeline.ok) {
-    return { status: 'failed', stage: pipeline.stage, message: pipeline.message };
+  const imported = asCommonsDownloadImported(pipeline);
+  if ('failed' in imported) {
+    return { status: 'failed', stage: imported.failed.stage, message: imported.failed.message };
   }
 
   return {
     status: 'imported',
-    message: pipeline.message,
+    message: imported.message,
     togglePersisted: false,
   };
 }

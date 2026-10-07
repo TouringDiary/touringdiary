@@ -18,7 +18,7 @@ import {
   User,
 } from 'lucide-react';
 import type React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FavoriteBookmarkButton } from '@/components/myspace/FavoriteBookmarkButton';
 import { CloseButton } from '@/components/ui/controls/CloseButton';
@@ -26,7 +26,9 @@ import { resolveResourceType } from '@/constants/planTypes';
 import { PLATFORM_FEATURE_FLAG_KEYS } from '@/constants/platformFeatureFlags';
 import { Z_MODAL, Z_OVERLAY } from '@/constants/zIndex';
 import { useFeatureFlag } from '@/context/PlatformControlContext';
+import { isDiaryResourcePoi } from '@/domain/diary/diaryResource';
 import { useMobileDetect } from '@/hooks/ui/useMobileDetect';
+import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap';
 import { useGlobalModalEscape } from '@/hooks/useGlobalModalEscape';
 import { useInteraction } from '../../context/InteractionContext';
 import { useDynamicStyles } from '../../hooks/useDynamicStyles';
@@ -87,8 +89,7 @@ export const PoiDetailModal = ({
   useGlobalModalEscape(!!poi, onClose);
 
   // --- 1. DETERMINA TIPO VISTA (BUSINESS VS STANDARD) ---
-  const isResource =
-    Boolean(poi.resourceType) || (poi.category === 'leisure' && poi.subCategory === 'agency');
+  const isResource = isDiaryResourcePoi(poi);
 
   const modalContent = isResource ? (
     <BusinessView {...{ poi, onClose, onToggleItinerary, isInItinerary, user, onOpenAuth }} />
@@ -142,6 +143,8 @@ const BusinessView = ({
   user,
   onOpenAuth,
 }: BusinessViewProps) => {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocusTrap(true, dialogRef, false);
   const runtimeResource = poi.resourceType ?? resolveResourceType(poi.planType);
   const favoriteEntityKind =
     runtimeResource === 'guide'
@@ -210,19 +213,14 @@ const BusinessView = ({
       style={{ zIndex: Z_OVERLAY }}
       role="presentation"
     >
-      <button
-        type="button"
-        tabIndex={-1}
-        aria-hidden="true"
-        className="absolute inset-0 h-full w-full cursor-default border-0 bg-transparent p-0"
-        onClick={onClose}
-      />
       <div
+        ref={dialogRef}
         className={`relative bg-[#0b0f1a] w-full max-w-sm max-h-[calc(100dvh-2rem)] rounded-[2.5rem] border-2 ${theme.border} shadow-2xl overflow-hidden flex flex-col pointer-events-auto`}
         style={{ zIndex: Z_MODAL }}
         role="dialog"
         aria-modal="true"
         aria-labelledby="poi-business-title"
+        tabIndex={-1}
       >
         <div
           className={`absolute top-0 left-0 right-0 h-32 bg-gradient-to-br ${theme.gradient} opacity-20 shrink-0`}
@@ -342,6 +340,13 @@ const BusinessView = ({
           )}
         </div>
       </div>
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label="Chiudi"
+        className="absolute inset-0 z-0 h-full w-full cursor-default border-0 bg-transparent p-0"
+        onClick={onClose}
+      />
     </div>
   );
 };
@@ -360,6 +365,8 @@ const StandardView = ({
   onOpenAuth,
   initialView,
 }: PoiDetailModalProps) => {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocusTrap(true, dialogRef, false);
   const { hasUserVoted, toggleVote } = useInteraction();
   const shopPublicFlag = useFeatureFlag(PLATFORM_FEATURE_FLAG_KEYS.SPONSOR_SHOP_PUBLIC);
   const shopPublicEnabled = shopPublicFlag?.enabled ?? true;
@@ -499,19 +506,14 @@ const StandardView = ({
       style={{ zIndex: Z_OVERLAY }}
       role="presentation"
     >
-      <button
-        type="button"
-        tabIndex={-1}
-        aria-hidden="true"
-        className="absolute inset-0 h-full w-full cursor-default border-0 bg-transparent p-0"
-        onClick={onClose}
-      />
       <div
+        ref={dialogRef}
         className="relative bg-[#020617] w-full max-w-5xl h-full md:max-h-[95vh] md:rounded-3xl border-0 md:border border-slate-700 shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-5 pointer-events-auto"
         style={{ zIndex: Z_MODAL }}
         role="dialog"
         aria-modal="true"
         aria-labelledby="poi-detail-title"
+        tabIndex={-1}
       >
         <div className="relative shrink-0 border-b border-slate-800 bg-[#0f172a] p-4 md:p-6">
           <CloseButton onClose={onClose} position="absolute" variant="primary" />
@@ -591,6 +593,13 @@ const StandardView = ({
           </div>
         </div>
       </div>
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label="Chiudi"
+        className="absolute inset-0 z-0 h-full w-full cursor-default border-0 bg-transparent p-0"
+        onClick={onClose}
+      />
     </div>
   );
 };

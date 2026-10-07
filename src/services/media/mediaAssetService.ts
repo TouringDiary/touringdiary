@@ -41,6 +41,8 @@ type MediaAssetRow = {
   generated_by_ai: boolean;
   is_placeholder: boolean;
   asset_status: ImageAssetStatusDb;
+  wikimedia_validated: boolean | null;
+  admin_blocked: boolean;
   license_code: string | null;
   license_verified_at: string | null;
 };
@@ -98,7 +100,7 @@ export async function fetchMediaAssetsByIds(ids: string[]): Promise<Map<string, 
   if (unique.length === 0) return result;
 
   const selectCols =
-    'id, storage_bucket, storage_path, origin_type, generated_by_ai, is_placeholder, asset_status, license_code, license_verified_at';
+    'id, storage_bucket, storage_path, origin_type, generated_by_ai, is_placeholder, asset_status, wikimedia_validated, admin_blocked, license_code, license_verified_at';
 
   const chunks: string[][] = [];
   for (let i = 0; i < unique.length; i += MEDIA_ASSETS_BY_IDS_CHUNK) {
@@ -126,6 +128,53 @@ export async function fetchMediaAssetsByIds(ids: string[]): Promise<Map<string, 
   return result;
 }
 
+export type WikimediaSourceAssetState = {
+  id: string;
+  assetStatus: ImageAssetStatusDb;
+  wikimediaValidated: boolean | null;
+  adminBlocked: boolean;
+};
+
+const WIKIMEDIA_SOURCE_PAGE = 50;
+
+export async function fetchWikimediaAssetsBySourceRef(
+  sourceRef: string,
+): Promise<WikimediaSourceAssetState[]> {
+  const qid = sourceRef.trim();
+  if (!qid) return [];
+  const rows: WikimediaSourceAssetState[] = [];
+  let offset = 0;
+  for (;;) {
+    const { data, error } = await mf3MediaAssetsTable()
+      .select('id, asset_status, wikimedia_validated, admin_blocked')
+      .eq('origin_type', 'wikimedia')
+      .eq('source_ref', qid)
+      .order('id', { ascending: true })
+      .range(offset, offset + WIKIMEDIA_SOURCE_PAGE - 1);
+    if (error) throw new Error(error.message);
+    const page = data ?? [];
+    for (const row of page) {
+      if (!isImageAssetStatusDb(row.asset_status)) {
+        throw new Error('Stato asset Wikimedia non valido.');
+      }
+      rows.push({
+        id: row.id,
+        assetStatus: parseImageAssetStatusDb(row.asset_status),
+        wikimediaValidated:
+          row.wikimedia_validated === true
+            ? true
+            : row.wikimedia_validated === false
+              ? false
+              : null,
+        adminBlocked: row.admin_blocked !== false,
+      });
+    }
+    if (page.length < WIKIMEDIA_SOURCE_PAGE) break;
+    offset += WIKIMEDIA_SOURCE_PAGE;
+  }
+  return rows;
+}
+
 function parseMediaAssetRow(value: unknown): MediaAssetRow | null {
   if (!value || typeof value !== 'object') return null;
   const row = value as Record<string, unknown>;
@@ -140,6 +189,9 @@ function parseMediaAssetRow(value: unknown): MediaAssetRow | null {
   const assetStatusRaw = typeof row.asset_status === 'string' ? row.asset_status : '';
   if (!isImageAssetStatusDb(assetStatusRaw)) return null;
   const assetStatus = parseImageAssetStatusDb(assetStatusRaw);
+  const wikimediaValidated =
+    row.wikimedia_validated === true ? true : row.wikimedia_validated === false ? false : null;
+  const adminBlocked = row.admin_blocked !== false;
   const licenseCode =
     row.license_code === null || typeof row.license_code === 'string' ? row.license_code : null;
   const licenseVerifiedAt =
@@ -154,6 +206,8 @@ function parseMediaAssetRow(value: unknown): MediaAssetRow | null {
     generated_by_ai: row.generated_by_ai,
     is_placeholder: row.is_placeholder,
     asset_status: assetStatus,
+    wikimedia_validated: wikimediaValidated,
+    admin_blocked: adminBlocked,
     license_code: licenseCode,
     license_verified_at: licenseVerifiedAt,
   };

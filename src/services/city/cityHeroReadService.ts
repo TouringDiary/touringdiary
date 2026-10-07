@@ -14,14 +14,16 @@ import {
   fetchMediaAssetsByIds,
   mediaAssetOriginForImageResolver,
 } from '@/services/media/mediaAssetService';
+import { getSetting, SETTINGS_KEYS } from '@/services/settingsService';
 import { supabase } from '@/services/supabaseClient';
 import type { CityDetails, CitySummary, MediaAsset } from '@/types/index';
-import { buildPublicStorageUrl } from '@/utils/storagePathFromPublicUrl';
+import { buildPublicStorageUrl, samePublicStorageObject } from '@/utils/storagePathFromPublicUrl';
 
 type CityHeroRow = {
   id: string;
   media_asset_id: string;
   assignment_status: AssignmentStatusDb;
+  is_current: boolean;
 };
 
 function parseCityHeroAssignmentRow(raw: unknown): { cityId: string; row: CityHeroRow } | null {
@@ -36,12 +38,14 @@ function parseCityHeroAssignmentRow(raw: unknown): { cityId: string; row: CityHe
   if (typeof assignmentStatusRaw !== 'string' || !isAssignmentStatusDb(assignmentStatusRaw)) {
     return null;
   }
+  if (record.is_current !== true) return null;
   return {
     cityId: entityId,
     row: {
       id,
       media_asset_id: mediaAssetId,
       assignment_status: assignmentStatusRaw,
+      is_current: true,
     },
   };
 }
@@ -52,13 +56,13 @@ async function loadCityHeroRowsByCityIds(cityIds: string[]): Promise<Map<string,
   if (ids.length === 0) return out;
 
   const { data, error } = await entityImageAssignmentsQuery()
-    .select('id, entity_id, media_asset_id, assignment_status')
+    .select('id, entity_id, media_asset_id, assignment_status, is_current')
     .eq('entity_type', 'city')
     .in('entity_id', ids)
     .in('city_id', ids)
     .eq('assignment_role', 'gallery')
     .eq('is_current', true)
-    .eq('assignment_status', 'active');
+    .in('assignment_status', ['active', 'restored']);
 
   if (error) {
     throw new Error(`Lettura assignment City Hero fallita: ${error.message}`);
@@ -74,15 +78,43 @@ async function loadCityHeroRowsByCityIds(cityIds: string[]): Promise<Map<string,
   return out;
 }
 
+/**
+ * Tier ADMIN da `cities.hero_image` (D-CONS-25; Execution §40.5, §41.5, §42.3).
+ * L'upload Admin scrive la colonna e `hero_status = real` e non crea un assignment:
+ * il resolver deve leggere quel URL come livello ADMIN, insieme agli assignment gallery.
+ * Non esiste un `media_asset`, quindi assignment_status, asset_status, admin_blocked
+ * e isAssetEligibleForPublicUse non si applicano a questa colonna.
+ * Se un assignment Admin ha già lo stesso URL, anche non pubblicabile, la colonna
+ * non viene usata e resta il lifecycle del candidato.
+ */
+function adminColumnUrlWhenUnmatched(input: {
+  adminHeroUrl: string;
+  heroStatus: string | null | undefined;
+  adminCandidates: CityHeroAssignmentCandidate[];
+}): string | null {
+  if (input.heroStatus !== 'real') return null;
+  const raw = input.adminHeroUrl.trim();
+  if (!raw) return null;
+  const matched = input.adminCandidates.some((candidate) => {
+    const url = candidate.publicUrl?.trim() ?? '';
+    return url.length > 0 && (url === raw || samePublicStorageObject(url, raw));
+  });
+  if (matched) return null;
+  return raw;
+}
+
 function buildHeroContextFromRows(input: {
   adminHeroUrl: string | null;
+  heroStatus: string | null | undefined;
   wikimediaHeroPublicEnabled: boolean;
   rows: CityHeroRow[];
   assets: Awaited<ReturnType<typeof fetchMediaAssetsByIds>>;
+  platformPlaceholderUrl: string | null;
 }): CityHeroResolutionContext {
+  const adminCandidates: CityHeroAssignmentCandidate[] = [];
   const wikimediaGalleryCandidates: CityHeroAssignmentCandidate[] = [];
-  const communityCandidates: { url: string; stableId: string }[] = [];
-  const aiCandidates: { url: string; stableId: string }[] = [];
+  const communityCandidates: CityHeroAssignmentCandidate[] = [];
+  const aiCandidates: CityHeroAssignmentCandidate[] = [];
 
   for (const row of input.rows) {
     const mediaAssetId = row.media_asset_id.trim();
@@ -107,37 +139,76 @@ function buildHeroContextFromRows(input: {
     if (origin === 'wikimedia' || origin === 'verified_real') {
       wikimediaGalleryCandidates.push({
         originType,
-        isCurrent: true,
+        isCurrent: row.is_current,
         assignmentStatus: row.assignment_status,
         assetStatus,
+        wikimediaValidated: asset.wikimedia_validated,
+        adminBlocked: asset.admin_blocked,
         publicUrl,
         stableId: row.id,
       });
       continue;
     }
 
+    const candidate: CityHeroAssignmentCandidate = {
+      originType,
+      isCurrent: row.is_current,
+      assignmentStatus: row.assignment_status,
+      assetStatus,
+      wikimediaValidated: asset.wikimedia_validated,
+      adminBlocked: asset.admin_blocked,
+      publicUrl,
+      stableId: row.id,
+    };
+
+    if (origin === 'admin' || origin === 'admin_upload') {
+      adminCandidates.push(candidate);
+      continue;
+    }
+
     if (origin === 'community') {
-      communityCandidates.push({ url: publicUrl, stableId: row.id });
+      communityCandidates.push(candidate);
       continue;
     }
 
     if (origin === 'ai' || origin === 'ai_generated') {
-      aiCandidates.push({ url: publicUrl, stableId: row.id });
+      aiCandidates.push(candidate);
     }
   }
 
+  const rawAdminUrl = input.adminHeroUrl?.trim() ?? '';
+  const matchedAdminCandidates = rawAdminUrl
+    ? adminCandidates.filter((candidate) => {
+        const url = candidate.publicUrl?.trim() ?? '';
+        return url === rawAdminUrl || samePublicStorageObject(url, rawAdminUrl);
+      })
+    : [];
+  matchedAdminCandidates.sort((a, b) => (a.stableId ?? '').localeCompare(b.stableId ?? ''));
   wikimediaGalleryCandidates.sort((a, b) => (a.stableId ?? '').localeCompare(b.stableId ?? ''));
-  communityCandidates.sort((a, b) => a.stableId.localeCompare(b.stableId));
-  aiCandidates.sort((a, b) => a.stableId.localeCompare(b.stableId));
+  communityCandidates.sort((a, b) => (a.stableId ?? '').localeCompare(b.stableId ?? ''));
+  aiCandidates.sort((a, b) => (a.stableId ?? '').localeCompare(b.stableId ?? ''));
 
   return {
     adminHeroUrl: input.adminHeroUrl,
+    adminColumnUrl: adminColumnUrlWhenUnmatched({
+      adminHeroUrl: rawAdminUrl,
+      heroStatus: input.heroStatus,
+      adminCandidates,
+    }),
     wikimediaHeroPublicEnabled: input.wikimediaHeroPublicEnabled,
+    adminCandidates: matchedAdminCandidates,
     wikimediaGalleryCandidates,
-    communityHeroUrl: communityCandidates[0]?.url ?? null,
-    aiHeroUrl: aiCandidates[0]?.url ?? null,
-    platformPlaceholderUrl: null,
+    communityCandidates,
+    aiCandidates,
+    platformPlaceholderUrl: input.platformPlaceholderUrl,
   };
+}
+
+async function loadPlatformHeroPlaceholderUrl(): Promise<string | null> {
+  const value = await getSetting<unknown>(SETTINGS_KEYS.HERO_IMAGE);
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 /** Allinea heroAsset all'URL D-22 usando solo metadati già presenti sulla città (parseMediaAsset). */
@@ -174,15 +245,18 @@ export async function applyCityHeroD22ToSummaries(
     }
   }
   const assets = await fetchMediaAssetsByIds([...assetIds]);
+  const platformPlaceholderUrl = await loadPlatformHeroPlaceholderUrl();
 
   return summaries.map((city) => {
     const cityId = city.id.trim();
     const adminRaw = city.heroImage?.trim() ?? '';
     const context = buildHeroContextFromRows({
       adminHeroUrl: adminRaw ? adminRaw : null,
+      heroStatus: city.hero_status,
       wikimediaHeroPublicEnabled: city.wikimediaHeroPublicEnabled === true,
       rows: rowsByCity.get(cityId) ?? [],
       assets,
+      platformPlaceholderUrl,
     });
     const { url } = resolveCityHeroDisplayUrl(context);
     const heroAsset = heroAssetAlignedWithUrl({
@@ -205,7 +279,7 @@ export async function applyCityHeroD22ToDetails(city: CityDetails): Promise<City
 
   const { data: cityRow, error } = await supabase
     .from('cities')
-    .select('wikimedia_hero_public_enabled, hero_image')
+    .select('wikimedia_hero_public_enabled, hero_image, hero_status')
     .eq('id', cityId)
     .maybeSingle();
 
@@ -217,13 +291,16 @@ export async function applyCityHeroD22ToDetails(city: CityDetails): Promise<City
   const rows = rowsByCity.get(cityId) ?? [];
   const assetIds = [...new Set(rows.map((r) => r.media_asset_id.trim()).filter(Boolean))];
   const assets = await fetchMediaAssetsByIds(assetIds);
+  const platformPlaceholderUrl = await loadPlatformHeroPlaceholderUrl();
 
   const adminHeroRaw = cityRow?.hero_image?.trim() ?? '';
   const context = buildHeroContextFromRows({
     adminHeroUrl: adminHeroRaw ? adminHeroRaw : null,
+    heroStatus: cityRow?.hero_status,
     wikimediaHeroPublicEnabled: cityRow?.wikimedia_hero_public_enabled === true,
     rows,
     assets,
+    platformPlaceholderUrl,
   });
 
   const { url } = resolveCityHeroDisplayUrl(context);

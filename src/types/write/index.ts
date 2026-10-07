@@ -23,7 +23,6 @@ import type {
   CitySummary,
   PoiCategory,
   PointOfInterest,
-  PoiSubCategory,
   ShopCategory,
   ShopPartner,
   ShopProduct,
@@ -121,7 +120,12 @@ export interface PoiUpsertPayload {
   name: string;
   city_id: string;
   category: PoiCategory;
-  sub_category: PoiSubCategory | null;
+  /**
+   * Colonna `pois.sub_category` (text).
+   * Codice canonico, oppure testo già persistito quando l'admin non lo cambia.
+   * La union dei codici canonici non viene allargata.
+   */
+  sub_category: string | null;
   description: string;
   address: string | null;
 

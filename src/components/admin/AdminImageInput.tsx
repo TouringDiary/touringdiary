@@ -14,17 +14,33 @@ import {
 } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { resolveCategoryPlaceholderUrl } from '@/domain/poi/resolvePoiDisplayImageUrl';
 import { useAiRuntimeGate } from '@/hooks/useAiRuntimeGate';
 import { aiGateway } from '@/services/ai/aiGateway';
 import type { MediaStatus } from '@/types';
 import { uploadPublicMedia } from '../../services/mediaService';
-import { getCachedSetting } from '../../services/settingsService';
+import { getCategoryPlaceholders } from '../../services/settingsService';
 import {
   compressImage,
   compressImageHighQuality,
   dataURLtoFile,
   getPoiCategoryLabel,
 } from '../../utils/common';
+
+type CopyrightAdvice = {
+  status: 'safe' | 'caution' | 'danger';
+  message: string;
+};
+
+function readCopyrightAdvice(value: unknown): CopyrightAdvice | null {
+  if (!value || typeof value !== 'object') return null;
+  if (!('status' in value) || !('message' in value)) return null;
+  const status = Reflect.get(value, 'status');
+  const message = Reflect.get(value, 'message');
+  if (status !== 'safe' && status !== 'caution' && status !== 'danger') return null;
+  if (typeof message !== 'string' || message.trim().length === 0) return null;
+  return { status, message };
+}
 
 interface AdminImageInputProps {
   imageUrl: string;
@@ -40,6 +56,61 @@ interface AdminImageInputProps {
   onValidityChange?: (isValid: boolean) => void;
   qualityMode?: 'standard' | 'high';
   category?: string; // NEW: Passiamo la categoria per mostrare il placeholder corretto
+  /** Sostituisce solo la card esterna. Assente: shell admin storica, invariata per gli altri schermi. */
+  shellClassName?: string;
+  /**
+   * Nel tab Media del POI il placeholder ha una sezione propria.
+   * Gli altri schermi lo lasciano dentro questo campo.
+   */
+  showInlinePlaceholder?: boolean;
+}
+
+export function CategoryPlaceholderStatus({ category = 'monument' }: { category?: string }) {
+  const placeholderUrl = category
+    ? (resolveCategoryPlaceholderUrl({
+        category,
+        categoryPlaceholders: getCategoryPlaceholders(),
+      }) ?? null)
+    : null;
+  const hasPlaceholder = !!placeholderUrl;
+
+  return (
+    <div
+      className={`flex items-center justify-between gap-3 rounded-xl border p-4 ${hasPlaceholder ? 'border-indigo-500/30 bg-indigo-900/10' : 'border-red-500/30 bg-red-900/10'}`}
+    >
+      <div className="flex items-center gap-3">
+        <div
+          className={`rounded-full p-2 ${hasPlaceholder ? 'bg-indigo-500 text-white' : 'bg-red-500 text-white'}`}
+        >
+          {hasPlaceholder ? (
+            <RefreshCw className="h-4 w-4" aria-hidden />
+          ) : (
+            <AlertTriangle className="h-4 w-4" aria-hidden />
+          )}
+        </div>
+        <div>
+          <h4
+            className={`text-xs font-bold uppercase ${hasPlaceholder ? 'text-indigo-300' : 'text-red-300'}`}
+          >
+            {hasPlaceholder ? 'Placeholder Attivo' : 'Placeholder Mancante'}
+          </h4>
+          <p className="text-[10px] text-slate-400">
+            Categoria: <span className="font-mono text-white">{category}</span> (
+            {getPoiCategoryLabel(category)})
+          </p>
+        </div>
+      </div>
+      {hasPlaceholder && placeholderUrl ? (
+        <div className="relative h-10 w-16 overflow-hidden rounded border border-slate-700 bg-black">
+          <img src={placeholderUrl} className="h-full w-full object-cover opacity-80" alt="" />
+        </div>
+      ) : (
+        <p className="max-w-[120px] text-right text-[9px] font-bold text-red-400">
+          Cambia Categoria in &quot;Info&quot; o carica una foto.
+        </p>
+      )}
+    </div>
+  );
 }
 
 export const AdminImageInput = ({
@@ -50,6 +121,8 @@ export const AdminImageInput = ({
   onValidityChange,
   qualityMode = 'standard',
   category = 'monument',
+  shellClassName,
+  showInlinePlaceholder = true,
 }: AdminImageInputProps) => {
   const { aiBlocked, blockMessage, guardAiAction } = useAiRuntimeGate();
   const [mode, setMode] = useState<'url' | 'upload'>('url');
@@ -63,12 +136,8 @@ export const AdminImageInput = ({
   const [dimensions, setDimensions] = useState<{ w: number; h: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Placeholder Logic
-  const placeholderUrl = category ? getCachedSetting<string>(category) : null;
-  const hasPlaceholder = !!placeholderUrl;
-
   useEffect(() => {
-    if (imageUrl !== localPreview) setLocalPreview(imageUrl);
+    setLocalPreview(imageUrl.trim() ? imageUrl : null);
   }, [imageUrl]);
 
   useEffect(() => {
@@ -84,7 +153,7 @@ export const AdminImageInput = ({
   useEffect(() => {
     let isValid = true;
     if (imageLicense === 'copyright') isValid = false;
-    if (imageLicense === 'cc' && (!imageCredit || !imageCredit.trim())) isValid = false;
+    if (imageLicense === 'cc' && !imageCredit?.trim()) isValid = false;
     if (onValidityChange) onValidityChange(isValid);
   }, [imageLicense, imageCredit, onValidityChange]);
 
@@ -200,11 +269,11 @@ export const AdminImageInput = ({
 
       const text = response.text || '';
       const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const result = JSON.parse(jsonMatch[0]);
-        setAiAdvice(result);
-        if (result.status === 'danger') updateData({ imageLicense: 'copyright' });
-        else if (result.status === 'caution') updateData({ imageLicense: 'cc' });
+      const advice = jsonMatch ? readCopyrightAdvice(JSON.parse(jsonMatch[0])) : null;
+      if (advice) {
+        setAiAdvice(advice);
+        if (advice.status === 'danger') updateData({ imageLicense: 'copyright' });
+        else if (advice.status === 'caution') updateData({ imageLicense: 'cc' });
       } else {
         setAiAdvice({ status: 'caution', message: 'Non riesco a determinare con certezza.' });
       }
@@ -217,10 +286,15 @@ export const AdminImageInput = ({
   };
 
   const isCreditRequired = imageLicense === 'cc' || imageLicense === 'copyright';
-  const isBlocking = (imageLicense === 'cc' && !imageCredit) || imageLicense === 'copyright';
+  const isBlocking =
+    (imageLicense === 'cc' && !imageCredit?.trim()) || imageLicense === 'copyright';
 
   return (
-    <div className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden mb-6">
+    <div
+      className={
+        shellClassName ?? 'bg-slate-900 border border-slate-700 rounded-xl overflow-hidden mb-6'
+      }
+    >
       <div className="flex border-b border-slate-700">
         <button
           type="button"
@@ -348,48 +422,10 @@ export const AdminImageInput = ({
               )}
             </div>
           </div>
+        ) : showInlinePlaceholder ? (
+          <CategoryPlaceholderStatus category={category} />
         ) : (
-          <div
-            className={`p-4 rounded-xl flex items-center justify-between gap-3 border ${hasPlaceholder ? 'bg-indigo-900/10 border-indigo-500/30' : 'bg-red-900/10 border-red-500/30'}`}
-          >
-            <div className="flex items-center gap-3">
-              <div
-                className={`p-2 rounded-full ${hasPlaceholder ? 'bg-indigo-500 text-white' : 'bg-red-500 text-white'}`}
-              >
-                {hasPlaceholder ? (
-                  <RefreshCw className="w-4 h-4" />
-                ) : (
-                  <AlertTriangle className="w-4 h-4" />
-                )}
-              </div>
-              <div>
-                <h4
-                  className={`text-xs font-bold uppercase ${hasPlaceholder ? 'text-indigo-300' : 'text-red-300'}`}
-                >
-                  {hasPlaceholder ? 'Placeholder Attivo' : 'Placeholder Mancante'}
-                </h4>
-                <p className="text-[10px] text-slate-400">
-                  Categoria: <span className="font-mono text-white">{category}</span> (
-                  {getPoiCategoryLabel(category)})
-                </p>
-              </div>
-            </div>
-
-            {hasPlaceholder ? (
-              <div className="h-10 w-16 rounded overflow-hidden border border-slate-700 bg-black relative">
-                <img
-                  src={placeholderUrl}
-                  className="w-full h-full object-cover opacity-80"
-                  alt="Placeholder"
-                />
-                <div className="absolute inset-0 bg-black/20"></div>
-              </div>
-            ) : (
-              <div className="text-[9px] text-red-400 font-bold max-w-[120px] text-right">
-                Cambia Categoria in "Info" o carica una foto.
-              </div>
-            )}
-          </div>
+          <p className="text-xs text-slate-400">Nessuna immagine admin per questo POI.</p>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-800">

@@ -140,7 +140,9 @@ export const saveSinglePoi = async (
     name: poi.name || 'Senza Nome',
     city_id: cityId,
     category: safeCategory,
-    sub_category: poi.subCategory ?? null,
+    sub_category: poi.adminSubCategoryWrite
+      ? poi.adminSubCategoryWrite.value
+      : (poi.subCategory ?? null),
     description: poi.description || '',
     address: poi.address ?? null,
     image_url: '',
@@ -160,7 +162,9 @@ export const saveSinglePoi = async (
     ai_reliability: poi.aiReliability ?? null,
     tourism_interest: poi.tourismInterest ?? null,
     last_verified: poi.lastVerified ?? null,
-    opening_hours: serializeOpeningHours(poi.openingHours),
+    opening_hours: poi.adminOpeningHoursWrite
+      ? poi.adminOpeningHoursWrite.value
+      : serializeOpeningHours(poi.openingHours),
     affiliate: serializeAffiliateLinks(poi.affiliate),
     link_metadata: serializeLinkMetadataRecord(poi.linkMetadata),
     date_added: poi.dateAdded || now,

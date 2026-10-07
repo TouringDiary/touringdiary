@@ -45,6 +45,24 @@ export function parseStorageLocationFromPublicUrl(url: string): ParsedStorageLoc
   return { storageBucket: markerMatch.bucket, storagePath: decodedPath };
 }
 
+/** Stesso oggetto Storage, anche se l'URL pubblico differisce per encoding o query. */
+export function samePublicStorageObject(
+  left: string | null | undefined,
+  right: string | null | undefined,
+): boolean {
+  const a = left?.trim() ?? '';
+  const b = right?.trim() ?? '';
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const leftStored = parseStorageLocationFromPublicUrl(a);
+  const rightStored = parseStorageLocationFromPublicUrl(b);
+  if (!leftStored?.storagePath || !rightStored?.storagePath) return false;
+  return (
+    leftStored.storageBucket === rightStored.storageBucket &&
+    leftStored.storagePath === rightStored.storagePath
+  );
+}
+
 /** URL pubblico Storage da bucket + path (MF3 coda Admin). */
 export function buildPublicStorageUrl(bucket: string, path: string): string | null {
   const cleanBucket = bucket.trim();

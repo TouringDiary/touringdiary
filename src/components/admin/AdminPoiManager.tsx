@@ -1,6 +1,6 @@
 import { X } from 'lucide-react';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useCityGenerator } from '../../hooks/useCityGenerator';
 import { usePoiManager } from '../../hooks/usePoiManager';
 import type { PointOfInterest, User } from '../../types/index';
@@ -12,6 +12,7 @@ import { AdminTaxonomyManager } from './AdminTaxonomyManager';
 import { ProcessLogModal } from './cities/ProcessLogModal';
 import { PoiList } from './poiManager/PoiList';
 import { PoiToolbar } from './poiManager/PoiToolbar';
+import { WikimediaBulkValidationDialog } from './poiManager/WikimediaBulkValidationDialog';
 
 export interface AdminPoiManagerProps {
   cityId: string;
@@ -26,6 +27,7 @@ export const AdminPoiManager: React.FC<AdminPoiManagerProps> = ({
 }) => {
   // 1. USE AGGREGATOR HOOK
   const { state, actions, counts } = usePoiManager(cityId);
+  const taxonomyTitleId = useId();
 
   // 2. AI GENERATOR HOOK (Per bonifica e discovery)
   const generator = useCityGenerator(() => {
@@ -44,6 +46,7 @@ export const AdminPoiManager: React.FC<AdminPoiManagerProps> = ({
   const [deleteTarget, setDeleteTarget] = useState<PointOfInterest | null>(null);
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const [showProcessLog, setShowProcessLog] = useState(false);
+  const [wikimediaBulkOpen, setWikimediaBulkOpen] = useState(false);
 
   const isSuperAdmin = currentUser?.role === 'admin_all';
 
@@ -130,6 +133,7 @@ export const AdminPoiManager: React.FC<AdminPoiManagerProps> = ({
         onSave={handleSavePoi}
         poi={editingPoi}
         cityName={cityName}
+        canHardDeletePhotos={currentUser?.role === 'admin_all'}
       />
 
       {previewPoi && currentUser ? (
@@ -173,11 +177,23 @@ export const AdminPoiManager: React.FC<AdminPoiManagerProps> = ({
       />
 
       {isTaxonomyOpen && (
-        <div className="fixed inset-0 z-admin-modal bg-slate-950 flex flex-col">
-          <div className="p-4 border-b border-slate-800 flex justify-between items-center">
-            <h2 className="text-white font-bold">Gestione Tassonomia</h2>
-            <button type="button" onClick={() => setIsTaxonomyOpen(false)}>
-              <X className="w-6 h-6 text-white" />
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={taxonomyTitleId}
+          className="fixed inset-0 z-admin-modal bg-slate-950 flex flex-col"
+        >
+          <div className="p-4 border-b border-slate-800 flex justify-between items-center gap-3">
+            <h2 id={taxonomyTitleId} className="min-w-0 text-white font-bold">
+              Gestione Tassonomia
+            </h2>
+            <button
+              type="button"
+              aria-label="Chiudi gestione tassonomia"
+              onClick={() => setIsTaxonomyOpen(false)}
+              className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-white hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+            >
+              <X className="w-6 h-6 text-white" aria-hidden />
             </button>
           </div>
           <div className="flex-1 overflow-hidden">
@@ -223,6 +239,7 @@ export const AdminPoiManager: React.FC<AdminPoiManagerProps> = ({
           setPageSize: actions.setPageSize,
           bulkStatusChange: handleBulkStatus,
           bulkDelete: handleBulkDeleteRequest,
+          openWikimediaBulkValidation: () => setWikimediaBulkOpen(true),
           resetSelection: actions.resetSelection,
           resetFiltersAndReload: actions.resetFiltersAndReload,
         }}
@@ -256,6 +273,15 @@ export const AdminPoiManager: React.FC<AdminPoiManagerProps> = ({
         availableItems={state.allCityPois}
         hideStatus={true}
         hideCategory={state.activeCategory !== 'all'}
+      />
+      <WikimediaBulkValidationDialog
+        isOpen={wikimediaBulkOpen}
+        cityId={cityId}
+        pois={Array.from(state.selectedIds).map((id) => {
+          const poi = state.pois.find((row) => row.id === id);
+          return { id, name: poi?.name?.trim() || id };
+        })}
+        onClose={() => setWikimediaBulkOpen(false)}
       />
     </div>
   );

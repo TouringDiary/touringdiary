@@ -1,4 +1,5 @@
 import { AlertTriangle } from 'lucide-react';
+import { assignmentStatusLabel } from '@/constants/governance';
 import type { ReportOtherAssignment, ReportOtherPersonCity } from '@/types/models/contentReport';
 
 type ReportOtherUsagesAlertProps = {
@@ -28,7 +29,8 @@ export const ReportOtherUsagesAlert = ({
         <ul className="text-xs text-amber-100/90 space-y-1 list-disc pl-4">
           {otherAssignments.map((item) => (
             <li key={item.assignmentId}>
-              Stessa fotografia: {item.entityName} · {item.cityName} · {item.assignmentStatus}
+              Stessa fotografia: {item.entityName} · {item.cityName} ·{' '}
+              {assignmentStatusLabel(item.assignmentStatus)}
               {item.isCurrent ? ' (corrente)' : ''}
             </li>
           ))}

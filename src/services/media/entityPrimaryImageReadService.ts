@@ -1,6 +1,7 @@
-import { isPublicUsableImageAssetStatus, parseImageAssetStatusDb } from '@/constants/governance';
-import { fetchMediaAssetsByIds } from '@/services/media/mediaAssetService';
+import { isPubliclyVisibleAssignmentStatus, parseImageAssetStatusDb } from '@/constants/governance';
+import { isAssetEligibleForPublicUse } from '@/domain/media/imagePublicationPolicy';
 import { entityImageAssignmentsQuery } from '@/services/media/entityImageAssignmentsQuery';
+import { fetchMediaAssetsByIds } from '@/services/media/mediaAssetService';
 import type { FamousPerson, PointOfInterest } from '@/types/index';
 import { buildPublicStorageUrl } from '@/utils/storagePathFromPublicUrl';
 
@@ -31,11 +32,27 @@ function isPrimaryAssignmentRow(value: unknown): value is PrimaryAssignmentRow {
 
 /** POST-MF5 SoT: solo media_assets pubblicabile con storage valido (fail-closed). */
 function resolveAssignmentPublicUrl(
-  asset: { storage_bucket: string; storage_path: string; asset_status: string } | undefined,
+  asset:
+    | {
+        storage_bucket: string;
+        storage_path: string;
+        asset_status: string;
+        origin_type: string | null;
+        wikimedia_validated: boolean | null;
+        admin_blocked: boolean;
+      }
+    | undefined,
 ): string | null {
   if (!asset?.asset_status) return null;
   try {
-    if (!isPublicUsableImageAssetStatus(parseImageAssetStatusDb(asset.asset_status))) {
+    if (
+      !isAssetEligibleForPublicUse({
+        originType: asset.origin_type,
+        assetStatus: parseImageAssetStatusDb(asset.asset_status),
+        wikimediaValidated: asset.wikimedia_validated,
+        adminBlocked: asset.admin_blocked,
+      })
+    ) {
       return null;
     }
   } catch {
@@ -144,7 +161,7 @@ function resolvePublicUrlFromIndex(
   }
 
   const assignment = assignmentByKey.get(key);
-  if (assignment?.assignment_status !== 'active') return '';
+  if (!assignment || !isPubliclyVisibleAssignmentStatus(assignment.assignment_status)) return '';
 
   const resolved = resolveAssignmentPublicUrl(assets.get(assignment.media_asset_id));
   return resolved?.trim() ?? '';
@@ -265,6 +282,13 @@ export async function applyPrimaryImageCutoverForPois(
 
   return pois.map((poi) => {
     if (!poi.id?.trim()) return poi;
+
+    const key = entityAssignmentKey(trimmedCityId, poi.id);
+    const assignment = duplicateKeys.has(key) ? undefined : assignmentByKey.get(key);
+    const asset = assignment ? assets.get(assignment.media_asset_id) : undefined;
+    if (asset?.origin_type === 'wikimedia' && poi.wikimediaPublicEnabled !== true) {
+      return { ...poi, imageUrl: '' };
+    }
 
     const resolved = resolvePublicUrlFromIndex(
       trimmedCityId,

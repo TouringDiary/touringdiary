@@ -1,4 +1,5 @@
 import type { PoiFormData } from '../../../types/write/poiForm';
+import { usePoiModalSurface } from './usePoiModalSurface';
 
 interface PoiMarketingTabProps {
   formData: PoiFormData;
@@ -6,17 +7,20 @@ interface PoiMarketingTabProps {
 }
 
 export const PoiMarketingTab = ({ formData, updateField }: PoiMarketingTabProps) => {
+  const { cardSurface, sectionTitle, sectionDescription, cardLabel } = usePoiModalSurface();
   // Type Guard per SponsorTier
   const isValidTier = (val: string): val is PoiFormData['tier'] => {
     return ['gold', 'silver', 'standard', ''].includes(val);
   };
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
-      <div className="flex items-center justify-between p-4 bg-slate-900 rounded-xl border border-slate-700">
-        <div>
-          <h4 className="font-bold text-white">Sponsorizzato</h4>
-          <p className="text-xs text-slate-400">Metti in evidenza questo luogo</p>
+    <div className="space-y-6 min-w-0 w-full">
+      <div
+        className={`${cardSurface} flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between`}
+      >
+        <div className="min-w-0">
+          <h4 className={sectionTitle}>Sponsorizzato</h4>
+          <p className={sectionDescription}>Metti in evidenza questo luogo</p>
         </div>
         <label className="relative inline-flex items-center cursor-pointer">
           <input
@@ -30,11 +34,11 @@ export const PoiMarketingTab = ({ formData, updateField }: PoiMarketingTabProps)
       </div>
 
       {formData.isSponsored && (
-        <div className="grid grid-cols-2 gap-6 animate-in fade-in">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 min-w-0">
           <div>
             <label
               htmlFor="fld-admin-poimodal-poimarketingtab-tsx-l35"
-              className="text-xs font-bold text-slate-500 uppercase block mb-1"
+              className={`${cardLabel} block mb-1`}
             >
               Livello Sponsor
             </label>
@@ -55,7 +59,7 @@ export const PoiMarketingTab = ({ formData, updateField }: PoiMarketingTabProps)
           <div>
             <label
               htmlFor="fld-admin-poimodal-poimarketingtab-tsx-l52"
-              className="text-xs font-bold text-slate-500 uppercase block mb-1"
+              className={`${cardLabel} block mb-1`}
             >
               Scadenza
             </label>
