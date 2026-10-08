@@ -1,4 +1,4 @@
-import { Briefcase, Calendar, CheckCircle, Edit2, MapPin, Trash2 } from 'lucide-react';
+import { Briefcase, Calendar, CheckCircle, MapPin, Pencil, Trash2 } from 'lucide-react';
 
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -147,8 +147,8 @@ export const AddToItineraryModal = ({
   const closeOffsetShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalCloseOffset);
   const modalTitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalTitle, isMobile);
   const modalSubtitleShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.modalSubtitle, isMobile);
-  const btnPrimaryShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.btnPrimary, isMobile);
-  const btnCancelShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.btnCancel, isMobile);
+  const btnPrimaryShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.btnPrimary);
+  const btnCancelShell = useFoundationStyles(FOUNDATION_STYLE_KEYS.btnCancel);
 
   const showDateConfig = isEditingDates || days.length === 0;
   const dialogView = showDateConfig ? 'dates' : isRemoving ? 'remove' : 'confirm';
@@ -273,6 +273,13 @@ export const AddToItineraryModal = ({
       style={{ zIndex: Z_OVERLAY }}
       role="presentation"
     >
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full cursor-default border-0 bg-transparent p-0"
+        onClick={onClose}
+      />
       <div
         ref={dialogRef}
         className={`${containerShell} max-w-md ${MODAL_DIALOG_FOCUS}`}
@@ -366,11 +373,11 @@ export const AddToItineraryModal = ({
                   <button
                     type="button"
                     onClick={() => setIsEditingDates(true)}
-                    className="p-2 min-h-[44px] min-w-[44px] bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg transition-colors border border-slate-700 inline-flex items-center justify-center"
+                    className="inline-flex shrink-0 items-center justify-center p-2 min-h-[44px] min-w-[44px] bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg transition-colors border border-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                     title="Modifica date viaggio"
                     aria-label="Modifica date viaggio"
                   >
-                    <Edit2 className="w-3.5 h-3.5" aria-hidden />
+                    <Pencil className="w-4 h-4" aria-hidden />
                   </button>
                 </div>
               )}
@@ -538,21 +545,12 @@ export const AddToItineraryModal = ({
               )}
               <button type="button" onClick={handleConfirm} className={btnPrimaryShell}>
                 <CheckCircle className="w-4 h-4" aria-hidden />
-                {isResource ? 'Salva Contatto' : 'Conferma Tappa'}
+                {isResource ? 'Salva Contatto' : 'Conferma'}
               </button>
             </div>
           </div>
         ) : null}
       </div>
-      {days.length > 0 ? (
-        <button
-          type="button"
-          tabIndex={-1}
-          aria-label="Chiudi"
-          className="absolute inset-0 z-0 h-full w-full cursor-default border-0 bg-transparent p-0"
-          onClick={onClose}
-        />
-      ) : null}
     </div>
   );
 
